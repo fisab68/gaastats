@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GAA Stats">
+<title>GAA Hurling Stats</title>
+
+<!--
+  GAA HURLING STATS PWA v2
+  ========================
+  Fully offline Progressive Web App for hurling match statistics.
+  iPad Mini (2021), Safari, Add to Home Screen.
+
+  15 KPIs:
+    Goals For, Points For, Goals Against, Points Against,
+    Wide/Short/65, Pucks Won Us, Pucks Lost Us, Pucks Won Them,
+    Pucks Lost Them, Forced Turnovers, Contested Won, Contested Lost,
+    Cleanly Lost, Frees Won, Frees Lost
+
+  GAME FLOW:
+    New Game → Start Game (Q1 begins) → Pause/Resume → 2nd Half → End Game
+    Quarter buttons Q1-Q4 can also be tapped manually at any time.
+
+  DATA:
+    All events stored in localStorage with timestamp + quarter.
+    Quarter boundaries set automatically or manually.
+    Undo removes last event. Display shows Q×KPI table. Export saves CSV.
+-->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;900&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --text: #e8eef8;
+    --text-dim: #6b7a99;
+    --accent: #00d4ff;
+    --green: #00e676;
+    --red: #ff3d5a;
+    --amber: #ffab40;
+    --purple: #b388ff;
+    --flash: #00ff88;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 8px 8px 6px;
+    gap: 6px;
+  }
+
+  /* ── SCOREBOARD ── */
+  #scoreboard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .score-team { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+
+  .score-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+
+  .score-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px; line-height: 1; letter-spacing: 2px;
+    color: var(--text); transition: color 0.2s;
+  }
+
+  .score-value.flash-score { color: var(--flash); }
+
+  #match-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
+  #quarter-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent);
+  }
+
+  #match-clock {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px; color: var(--text); letter-spacing: 1px;
+  }
+
+  #match-clock.paused { color: var(--amber); }
+
+  #game-status {
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+
+  /* ── QUARTER ROW ── */
+  #quarter-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .qtr-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 1px; padding: 9px 4px;
+    cursor: pointer; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .qtr-btn.active {
+    background: var(--accent); border-color: var(--accent);
+    color: #000; box-shadow: 0 0 14px rgba(0,212,255,0.4);
+  }
+
+  .qtr-btn.done {
+    border-color: rgba(0,212,255,0.3);
+    color: rgba(0,212,255,0.5);
+  }
+
+  /* ── KPI GRID ── */
+  #kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .kpi-btn {
+    position: relative; overflow: hidden;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; padding: 6px 4px;
+    transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .kpi-btn.cat-for     { background: linear-gradient(145deg, #0d2010, #0a1a0d); border-color: #1a4020; }
+  .kpi-btn.cat-against { background: linear-gradient(145deg, #200d0d, #1a0a0a); border-color: #401a1a; }
+  .kpi-btn.cat-puck    { background: linear-gradient(145deg, #0d1520, #0a1018); border-color: #1a2a40; }
+  .kpi-btn.cat-contest { background: linear-gradient(145deg, #18110d, #130d08); border-color: #3a2a10; }
+  .kpi-btn.cat-free    { background: linear-gradient(145deg, #150d20, #100a1a); border-color: #301a40; }
+  .kpi-btn.cat-misc    { background: linear-gradient(145deg, #101018, #0a0a14); border-color: #202040; }
+
+  .kpi-label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    text-align: center; line-height: 1.2; color: var(--text-dim);
+  }
+
+  .kpi-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px; line-height: 1;
+  }
+
+  .cat-for     .kpi-count { color: #00e676; }
+  .cat-against .kpi-count { color: #ff3d5a; }
+  .cat-puck    .kpi-count { color: #00d4ff; }
+  .cat-contest .kpi-count { color: #ffab40; }
+  .cat-free    .kpi-count { color: #b388ff; }
+  .cat-misc    .kpi-count { color: #90a4ae; }
+
+  .kpi-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--flash); opacity: 0;
+    border-radius: inherit; pointer-events: none;
+    transition: opacity 0.05s;
+  }
+  .kpi-btn.flashing::after { opacity: 0.35; }
+
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    transform: scale(0);
+    animation: ripple-anim 0.4s linear;
+    pointer-events: none;
+  }
+  @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+  /* ── BOTTOM ROW ── */
+  #bottom-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
+    padding: 10px 4px;
+    border-radius: var(--radius-sm);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    cursor: pointer; border: 1.5px solid;
+    transition: all 0.15s; text-align: center;
+  }
+
+  .action-btn:active { transform: scale(0.94); opacity: 0.8; }
+
+  #undo-btn    { background: rgba(255,61,90,0.12);   border-color: rgba(255,61,90,0.4);   color: var(--red);    }
+  #pause-btn   { background: rgba(255,171,64,0.12);  border-color: rgba(255,171,64,0.4);  color: var(--amber);  }
+  #display-btn { background: rgba(0,212,255,0.12);   border-color: rgba(0,212,255,0.4);   color: var(--accent); }
+  #export-btn  { background: rgba(179,136,255,0.12); border-color: rgba(179,136,255,0.4); color: var(--purple); }
+  #newgame-btn { background: rgba(0,230,118,0.12);   border-color: rgba(0,230,118,0.4);   color: var(--green);  }
+
+  /* ── CONFIRM OVERLAY ── */
+  #confirm-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88); z-index: 200;
+    align-items: center; justify-content: center;
+    padding: 24px; backdrop-filter: blur(8px);
+  }
+  #confirm-overlay.visible { display: flex; }
+
+  #confirm-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 24px;
+    max-width: 360px; width: 100%;
+    text-align: center;
+  }
+
+  #confirm-box h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px; letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  #confirm-box p {
+    font-size: 14px; color: var(--text-dim);
+    line-height: 1.5; margin-bottom: 22px;
+  }
+
+  .confirm-btns { display: flex; gap: 10px; }
+
+  .confirm-btns button {
+    flex: 1; padding: 14px;
+    border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; border: 1.5px solid;
+  }
+
+  #confirm-yes { background: var(--red); border-color: var(--red); color: #fff; }
+  #confirm-no  { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+  /* End game special */
+  #confirm-yes.end { background: var(--green); border-color: var(--green); color: #000; }
+
+  /* ── STATS MODAL ── */
+  #modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 100;
+    align-items: center; justify-content: center;
+    padding: 14px; backdrop-filter: blur(6px);
+  }
+  #modal-overlay.visible { display: flex; }
+
+  #modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 18px;
+    width: 100%; max-width: 720px;
+    max-height: 88vh; overflow-y: auto;
+  }
+
+  #modal-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px; letter-spacing: 2px;
+    color: var(--accent); margin-bottom: 4px; text-align: center;
+  }
+
+  #modal-score-summary {
+    text-align: center; font-size: 12px;
+    color: var(--text-dim); margin-bottom: 14px;
+    font-weight: 600; letter-spacing: 1px;
+  }
+
+  #stats-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+
+  #stats-table th {
+    background: var(--surface2); color: var(--text-dim);
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 8px 10px; text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  #stats-table th:first-child { text-align: left; }
+
+  #stats-table td {
+    padding: 9px 10px; text-align: center;
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+    font-weight: 600; color: var(--text);
+  }
+  #stats-table td:first-child {
+    text-align: left; color: var(--text-dim);
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #stats-table td.total-col { color: var(--accent); font-weight: 900; }
+  #stats-table tr:last-child td { border-bottom: none; }
+  #stats-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+  #close-modal-btn {
+    margin-top: 14px; width: 100%; padding: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+  }
+
+  /* ── GAME OVER BANNER ── */
+  #game-over-banner {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0;
+    background: linear-gradient(90deg, #00e676, #00d4ff);
+    color: #000; text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 3px;
+    padding: 10px; z-index: 50;
+  }
+  #game-over-banner.visible { display: block; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 80px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 30px; padding: 8px 20px;
+    font-size: 13px; font-weight: 600; color: var(--text-dim);
+    opacity: 0; transition: all 0.25s; z-index: 300; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- GAME OVER BANNER -->
+<div id="game-over-banner">⬛ Full Time ⬛</div>
+
+<div id="app">
+
+  <!-- SCOREBOARD -->
+  <div id="scoreboard">
+    <div class="score-team">
+      <div class="score-label">Us</div>
+      <div class="score-value" id="score-us">0-00</div>
+    </div>
+    <div id="match-info">
+      <div id="quarter-label">Pre-Match</div>
+      <div id="match-clock">00:00</div>
+      <div id="game-status">Ready</div>
+    </div>
+    <div class="score-team">
+      <div class="score-label">Them</div>
+      <div class="score-value" id="score-them">0-00</div>
+    </div>
+  </div>
+
+  <!-- QUARTER BUTTONS -->
+  <div id="quarter-row">
+    <button class="qtr-btn" data-q="1" onclick="setQuarter(1)">Qtr 1</button>
+    <button class="qtr-btn" data-q="2" onclick="setQuarter(2)">Qtr 2</button>
+    <button class="qtr-btn" data-q="3" onclick="setQuarter(3)">Qtr 3</button>
+    <button class="qtr-btn" data-q="4" onclick="setQuarter(4)">Qtr 4</button>
+  </div>
+
+  <!-- KPI GRID -->
+  <div id="kpi-grid">
+    <button class="kpi-btn cat-for"     data-kpi="Goals For"        onclick="logEvent(this,event)"><span class="kpi-label">Goals For</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-for"     data-kpi="Points For"       onclick="logEvent(this,event)"><span class="kpi-label">Points For</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-against" data-kpi="Goals Against"    onclick="logEvent(this,event)"><span class="kpi-label">Goals Against</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-against" data-kpi="Points Against"   onclick="logEvent(this,event)"><span class="kpi-label">Points Against</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-misc"    data-kpi="Wide/Short/65"    onclick="logEvent(this,event)"><span class="kpi-label">Wide / Short / 65</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-puck"    data-kpi="Pucks Won Us"     onclick="logEvent(this,event)"><span class="kpi-label">Pucks Won Us</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-puck"    data-kpi="Pucks Lost Us"    onclick="logEvent(this,event)"><span class="kpi-label">Pucks Lost Us</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-puck"    data-kpi="Pucks Won Them"   onclick="logEvent(this,event)"><span class="kpi-label">Pucks Won Them</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-puck"    data-kpi="Pucks Lost Them"  onclick="logEvent(this,event)"><span class="kpi-label">Pucks Lost Them</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-misc"    data-kpi="Forced Turnovers" onclick="logEvent(this,event)"><span class="kpi-label">Forced Turnovers</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-contest" data-kpi="Contested Won"    onclick="logEvent(this,event)"><span class="kpi-label">Contested Won</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-contest" data-kpi="Contested Lost"   onclick="logEvent(this,event)"><span class="kpi-label">Contested Lost</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-contest" data-kpi="Cleanly Lost"     onclick="logEvent(this,event)"><span class="kpi-label">Cleanly Lost</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-free"    data-kpi="Frees Won"        onclick="logEvent(this,event)"><span class="kpi-label">Frees Won</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-free"    data-kpi="Frees Lost"       onclick="logEvent(this,event)"><span class="kpi-label">Frees Lost</span><span class="kpi-count">0</span></button>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div id="bottom-row">
+    <button class="action-btn" id="newgame-btn" onclick="confirmNewGame()">⊕ New</button>
+    <button class="action-btn" id="pause-btn"   onclick="togglePause()">⏸ Pause</button>
+    <button class="action-btn" id="undo-btn"    onclick="undoLast()">↩ Undo</button>
+    <button class="action-btn" id="display-btn" onclick="showDisplay()">📊 Stats</button>
+    <button class="action-btn" id="export-btn"  onclick="exportCSV()">⬇ CSV</button>
+  </div>
+
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-msg">This action cannot be undone.</p>
+    <div class="confirm-btns">
+      <button id="confirm-yes" onclick="confirmAction()">Confirm</button>
+      <button id="confirm-no"  onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATS MODAL -->
+<div id="modal-overlay" onclick="hideDisplay(event)">
+  <div id="modal-box">
+    <h2>Match Statistics</h2>
+    <div id="modal-score-summary"></div>
+    <table id="stats-table">
+      <thead>
+        <tr>
+          <th>KPI</th><th>Qtr 1</th><th>Qtr 2</th><th>Qtr 3</th><th>Qtr 4</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="stats-tbody"></tbody>
+    </table>
+    <button id="close-modal-btn" onclick="hideDisplay()">Close</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+const KPI_LIST = [
+  'Goals For','Points For','Goals Against','Points Against',
+  'Wide/Short/65','Pucks Won Us','Pucks Lost Us','Pucks Won Them',
+  'Pucks Lost Them','Forced Turnovers','Contested Won','Contested Lost',
+  'Cleanly Lost','Frees Won','Frees Lost'
+];
+
+const STORAGE_KEY  = 'gaa_event_log_v2';
+const STATE_KEY    = 'gaa_game_state_v2';
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let eventLog = [];
+let state = {
+  gamePhase:      'pre',      // pre | active | paused | half | ended
+  currentQuarter: 0,
+  quarters:       {},         // {1: startTs, 2: startTs, ...}
+  pausedAt:       null,       // timestamp when paused
+  totalPausedMs:  0,          // accumulated paused time for current quarter
+  quarterPausedMs:{},         // {1: ms, 2: ms, ...} total paused per quarter
+};
+
+let clockInterval = null;
+let pendingAction = null;     // stores function to run after confirm
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  const savedLog   = localStorage.getItem(STORAGE_KEY);
+  const savedState = localStorage.getItem(STATE_KEY);
+
+  if (savedLog)   eventLog = JSON.parse(savedLog);
+  if (savedState) state    = JSON.parse(savedState);
+
+  // If game was active when page closed, treat as still active
+  // (paused state is preserved via localStorage)
+
+  refreshAll();
+  startClockTick();
+  registerServiceWorker();
+}
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // SW registration may fail if served from file:// — that's OK
+    });
+  }
+}
+
+// ── GAME FLOW ─────────────────────────────────────────────────────────────────
+
+function startGame() {
+  // Called after New Game confirm — or directly if pre-match
+  state.gamePhase = 'active';
+  state.currentQuarter = 1;
+  state.quarters = { 1: Date.now() };
+  state.pausedAt = null;
+  state.totalPausedMs = 0;
+  state.quarterPausedMs = { 1: 0 };
+  saveState();
+  refreshAll();
+  showToast('Quarter 1 — Game On!');
+}
+
+function togglePause() {
+  if (state.gamePhase === 'pre') {
+    // First tap of pause in pre-match = Start Game
+    startGame();
+    updatePauseBtn();
+    return;
+  }
+
+  if (state.gamePhase === 'ended') { showToast('Game has ended'); return; }
+
+  if (state.gamePhase === 'paused') {
+    // Resume
+    const pauseDuration = Date.now() - state.pausedAt;
+    state.totalPausedMs += pauseDuration;
+    const q = state.currentQuarter;
+    state.quarterPausedMs[q] = (state.quarterPausedMs[q] || 0) + pauseDuration;
+    state.pausedAt = null;
+    state.gamePhase = state.currentQuarter <= 2 ? 'active' : 'active';
+    saveState();
+    showToast('Resumed');
+  } else {
+    // Pause
+    state.pausedAt = Date.now();
+    state.gamePhase = 'paused';
+    saveState();
+    showToast('Paused');
+  }
+
+  updatePauseBtn();
+  refreshClockDisplay();
+}
+
+function startSecondHalf() {
+  if (state.gamePhase === 'ended') { showToast('Game has ended'); return; }
+  // Move to Q3 — resets quarter clock, preserves all events
+  state.currentQuarter = 3;
+  state.quarters[3] = Date.now();
+  state.quarterPausedMs[3] = 0;
+  state.totalPausedMs = 0;
+  state.pausedAt = null;
+  state.gamePhase = 'active';
+  saveState();
+  refreshAll();
+  showToast('Second Half — Quarter 3');
+}
+
+function endGame() {
+  state.gamePhase = 'ended';
+  saveState();
+  document.getElementById('game-over-banner').classList.add('visible');
+  refreshAll();
+  showToast('Full Time');
+}
+
+// ── QUARTER MANAGEMENT ────────────────────────────────────────────────────────
+function setQuarter(q) {
+  if (state.gamePhase === 'ended') { showToast('Game has ended'); return; }
+  if (state.gamePhase === 'pre')   { startGame(); return; }
+
+  const wasQ = state.currentQuarter;
+  state.currentQuarter = q;
+
+  if (!state.quarters[q]) {
+    state.quarters[q] = Date.now();
+    state.quarterPausedMs[q] = 0;
+  }
+
+  // If paused, restart the clock from now
+  if (state.gamePhase === 'paused') {
+    state.gamePhase = 'active';
+    state.pausedAt = null;
+  }
+
+  // Handle second half auto-detection
+  if (q === 3 && !state.quarters[3]) {
+    state.totalPausedMs = 0;
+  }
+
+  saveState();
+  refreshQuarterUI();
+  updatePauseBtn();
+  showToast(`Quarter ${q}`);
+}
+
+// ── CONFIRM DIALOG ────────────────────────────────────────────────────────────
+function confirmNewGame() {
+  showConfirm(
+    '🆕 New Game',
+    'This will clear all current match data. Are you sure?',
+    doNewGame,
+    false
+  );
+}
+
+function confirmEndGame() {
+  showConfirm(
+    '🏁 End Game',
+    'Mark the match as finished. You can still view and export stats.',
+    endGame,
+    true
+  );
+}
+
+function confirmSecondHalf() {
+  showConfirm(
+    '2nd Half',
+    'Start the second half? This begins Quarter 3 and resets the half-timer.',
+    startSecondHalf,
+    true
+  );
+}
+
+function showConfirm(title, msg, action, isPositive) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  const yesBtn = document.getElementById('confirm-yes');
+  yesBtn.className = isPositive ? 'end' : '';
+  pendingAction = action;
+  document.getElementById('confirm-overlay').classList.add('visible');
+}
+
+function confirmAction() {
+  closeConfirm();
+  if (pendingAction) { pendingAction(); pendingAction = null; }
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('visible');
+}
+
+function doNewGame() {
+  eventLog = [];
+  state = {
+    gamePhase: 'pre', currentQuarter: 0,
+    quarters: {}, pausedAt: null,
+    totalPausedMs: 0, quarterPausedMs: {}
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
+  saveState();
+  document.getElementById('game-over-banner').classList.remove('visible');
+  document.getElementById('match-clock').textContent = '00:00';
+  refreshAll();
+  showToast('New game ready — tap Qtr 1 or ▶ to start');
+}
+
+// ── EVENT LOGGING ─────────────────────────────────────────────────────────────
+function logEvent(btn, evt) {
+  if (state.gamePhase === 'paused') { showToast('Tap Resume first'); return; }
+  if (state.gamePhase === 'ended')  { showToast('Game has ended');   return; }
+  if (state.gamePhase === 'pre')    { startGame(); }
+
+  const kpi     = btn.dataset.kpi;
+  const now     = Date.now();
+  const quarter = state.currentQuarter || 1;
+  const qStart  = state.quarters[quarter] || now;
+  const paused  = state.quarterPausedMs[quarter] || 0;
+  const elapsed = Math.max(0, Math.floor((now - qStart - paused) / 1000));
+  const m = Math.floor(elapsed / 60).toString().padStart(2,'0');
+  const s = (elapsed % 60).toString().padStart(2,'0');
+
+  const entry = { kpi, ts: now, quarter, time: `Q${quarter} ${m}:${s}` };
+  eventLog.push(entry);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
+
+  triggerFlash(btn);
+  triggerRipple(btn, evt);
+  triggerScale(btn);
+  refreshCounts();
+  refreshScoreboard();
+}
+
+// ── UNDO ──────────────────────────────────────────────────────────────────────
+function undoLast() {
+  if (eventLog.length === 0) { showToast('Nothing to undo'); return; }
+  const last = eventLog.pop();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
+  showToast(`↩ Undid: ${last.kpi}`);
+  refreshCounts();
+  refreshScoreboard();
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function startClockTick() {
+  if (clockInterval) clearInterval(clockInterval);
+  clockInterval = setInterval(refreshClockDisplay, 1000);
+}
+
+function refreshClockDisplay() {
+  const clockEl = document.getElementById('match-clock');
+  const statusEl = document.getElementById('game-status');
+
+  if (state.gamePhase === 'pre') {
+    clockEl.textContent = '00:00';
+    clockEl.classList.remove('paused');
+    statusEl.textContent = 'Tap ▶ or Qtr 1 to begin';
+    return;
+  }
+
+  if (state.gamePhase === 'ended') {
+    clockEl.classList.remove('paused');
+    statusEl.textContent = 'Full Time';
+    return;
+  }
+
+  const q      = state.currentQuarter;
+  const qStart = state.quarters[q];
+  if (!qStart) return;
+
+  const paused  = state.quarterPausedMs[q] || 0;
+  let   elapsed;
+
+  if (state.gamePhase === 'paused') {
+    // Show frozen time at moment of pause
+    const pausedDuration = Date.now() - state.pausedAt;
+    elapsed = Math.max(0, Math.floor((state.pausedAt - qStart - paused) / 1000));
+    clockEl.classList.add('paused');
+    statusEl.textContent = 'Paused';
+  } else {
+    elapsed = Math.max(0, Math.floor((Date.now() - qStart - paused) / 1000));
+    clockEl.classList.remove('paused');
+    statusEl.textContent = state.gamePhase === 'active' ? 'Live' : '';
+  }
+
+  const m = Math.floor(elapsed / 60).toString().padStart(2,'0');
+  const s = (elapsed % 60).toString().padStart(2,'0');
+  clockEl.textContent = `${m}:${s}`;
+}
+
+// ── REFRESH ALL ───────────────────────────────────────────────────────────────
+function refreshAll() {
+  refreshQuarterUI();
+  refreshCounts();
+  refreshScoreboard();
+  updatePauseBtn();
+  refreshClockDisplay();
+}
+
+function refreshQuarterUI() {
+  document.querySelectorAll('.qtr-btn').forEach(btn => {
+    const q = parseInt(btn.dataset.q);
+    btn.classList.remove('active','done');
+    if (q === state.currentQuarter)        btn.classList.add('active');
+    else if (state.quarters[q] && q < state.currentQuarter) btn.classList.add('done');
+  });
+
+  const ql = document.getElementById('quarter-label');
+  if (state.gamePhase === 'pre')    ql.textContent = 'Pre-Match';
+  else if (state.gamePhase === 'ended') ql.textContent = 'Full Time';
+  else ql.textContent = `Quarter ${state.currentQuarter}`;
+}
+
+function refreshCounts() {
+  const counts = {};
+  KPI_LIST.forEach(k => counts[k] = 0);
+  eventLog.forEach(e => { if (counts[e.kpi] !== undefined) counts[e.kpi]++; });
+  document.querySelectorAll('.kpi-btn').forEach(btn => {
+    btn.querySelector('.kpi-count').textContent = counts[btn.dataset.kpi] ?? 0;
+  });
+}
+
+function refreshScoreboard() {
+  const gf = eventLog.filter(e => e.kpi === 'Goals For').length;
+  const pf = eventLog.filter(e => e.kpi === 'Points For').length;
+  const ga = eventLog.filter(e => e.kpi === 'Goals Against').length;
+  const pa = eventLog.filter(e => e.kpi === 'Points Against').length;
+
+  const usEl   = document.getElementById('score-us');
+  const themEl = document.getElementById('score-them');
+  const newUs   = `${gf}-${pf.toString().padStart(2,'0')}`;
+  const newThem = `${ga}-${pa.toString().padStart(2,'0')}`;
+
+  if (usEl.textContent !== newUs)     { usEl.textContent = newUs;     flashScore(usEl); }
+  if (themEl.textContent !== newThem) { themEl.textContent = newThem; flashScore(themEl); }
+}
+
+function flashScore(el) {
+  el.classList.add('flash-score');
+  setTimeout(() => el.classList.remove('flash-score'), 400);
+}
+
+function updatePauseBtn() {
+  const btn = document.getElementById('pause-btn');
+  if (state.gamePhase === 'pre')    { btn.textContent = '▶ Start'; return; }
+  if (state.gamePhase === 'paused') { btn.textContent = '▶ Resume'; return; }
+  if (state.gamePhase === 'ended')  { btn.textContent = '— Done'; return; }
+
+  // Active — show context-sensitive options
+  // We'll keep pause for now; 2nd half and end game via quarter buttons area
+  btn.textContent = '⏸ Pause';
+}
+
+// ── ANIMATIONS ────────────────────────────────────────────────────────────────
+function triggerFlash(btn) {
+  btn.classList.add('flashing');
+  setTimeout(() => btn.classList.remove('flashing'), 200);
+}
+
+function triggerRipple(btn, evt) {
+  const rect = btn.getBoundingClientRect();
+  const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+  const y = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+  const size = Math.max(rect.width, rect.height);
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  r.style.cssText = `width:${size}px;height:${size}px;left:${x-size/2}px;top:${y-size/2}px`;
+  btn.appendChild(r);
+  setTimeout(() => r.remove(), 500);
+}
+
+function triggerScale(btn) {
+  btn.style.transform = 'scale(0.92)';
+  setTimeout(() => { btn.style.transform = ''; }, 150);
+}
+
+// ── DISPLAY TABLE ─────────────────────────────────────────────────────────────
+function showDisplay() {
+  const data = {};
+  KPI_LIST.forEach(k => { data[k] = {1:0,2:0,3:0,4:0}; });
+  eventLog.forEach(e => { if (data[e.kpi]) data[e.kpi][e.quarter]++; });
+
+  const tbody = document.getElementById('stats-tbody');
+  tbody.innerHTML = '';
+  KPI_LIST.forEach(kpi => {
+    const total = data[kpi][1]+data[kpi][2]+data[kpi][3]+data[kpi][4];
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${kpi}</td><td>${data[kpi][1]}</td><td>${data[kpi][2]}</td><td>${data[kpi][3]}</td><td>${data[kpi][4]}</td><td class="total-col">${total}</td>`;
+    tbody.appendChild(row);
+  });
+
+  // Score summary
+  const gf = eventLog.filter(e=>e.kpi==='Goals For').length;
+  const pf = eventLog.filter(e=>e.kpi==='Points For').length;
+  const ga = eventLog.filter(e=>e.kpi==='Goals Against').length;
+  const pa = eventLog.filter(e=>e.kpi==='Points Against').length;
+  const usScore   = gf*3 + pf;
+  const themScore = ga*3 + pa;
+  document.getElementById('modal-score-summary').textContent =
+    `Us ${gf}-${pf.toString().padStart(2,'0')} (${usScore})  |  Them ${ga}-${pa.toString().padStart(2,'0')} (${themScore})`;
+
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+
+function hideDisplay(evt) {
+  if (evt && evt.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('visible');
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (eventLog.length === 0) { showToast('No events yet'); return; }
+
+  let csv = 'Event,Quarter,Time,Timestamp_ms\n';
+  eventLog.forEach(e => { csv += `"${e.kpi}",${e.quarter},"${e.time}",${e.ts}\n`; });
+
+  csv += '\nKPI Summary\nKPI,Qtr1,Qtr2,Qtr3,Qtr4,Total\n';
+  const data = {};
+  KPI_LIST.forEach(k => { data[k] = {1:0,2:0,3:0,4:0}; });
+  eventLog.forEach(e => { if(data[e.kpi]) data[e.kpi][e.quarter]++; });
+  KPI_LIST.forEach(k => {
+    const t = data[k][1]+data[k][2]+data[k][3]+data[k][4];
+    csv += `"${k}",${data[k][1]},${data[k][2]},${data[k][3]},${data[k][4]},${t}\n`;
+  });
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `gaa_stats_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported');
+}
+
+// ── PERSIST STATE ─────────────────────────────────────────────────────────────
+function saveState() {
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── LONG-PRESS ON PAUSE BTN FOR 2ND HALF / END GAME ──────────────────────────
+// Long press (800ms) on Pause button reveals Second Half / End Game options
+let longPressTimer = null;
+
+document.getElementById('pause-btn').addEventListener('touchstart', () => {
+  longPressTimer = setTimeout(() => {
+    if (state.gamePhase === 'active' || state.gamePhase === 'paused') {
+      showGameOptions();
+    }
+  }, 800);
+}, { passive: true });
+
+document.getElementById('pause-btn').addEventListener('touchend', () => {
+  clearTimeout(longPressTimer);
+}, { passive: true });
+
+function showGameOptions() {
+  // Show a choice: 2nd Half or End Game
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-title').textContent = '⚙ Game Options';
+  document.getElementById('confirm-msg').textContent   = '';
+
+  // Repurpose confirm buttons temporarily
+  const yesBtn = document.getElementById('confirm-yes');
+  const noBtn  = document.getElementById('confirm-no');
+
+  yesBtn.textContent = '2nd Half →';
+  yesBtn.className   = 'end';
+  noBtn.textContent  = '🏁 End Game';
+
+  pendingAction = null;
+
+  yesBtn.onclick = () => { closeConfirm(); yesBtn.textContent='Confirm'; noBtn.textContent='Cancel'; restoreConfirmBtns(); confirmSecondHalf(); };
+  noBtn.onclick  = () => { closeConfirm(); yesBtn.textContent='Confirm'; noBtn.textContent='Cancel'; restoreConfirmBtns(); confirmEndGame(); };
+
+  overlay.classList.add('visible');
+}
+
+function restoreConfirmBtns() {
+  document.getElementById('confirm-yes').onclick = confirmAction;
+  document.getElementById('confirm-no').onclick  = closeConfirm;
+}
+
+// ── START ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
