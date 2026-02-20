@@ -1,6 +1,6 @@
 // GAA Stats PWA - Service Worker
 // Version bump this string any time you update the app to force cache refresh
-const CACHE_NAME = 'gaa-stats-v2';
+const CACHE_NAME = 'gaa-stats-v4';
 
 const ASSETS = [
   './index.html',
