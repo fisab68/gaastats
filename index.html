@@ -181,16 +181,16 @@
   .kpi-btn.cat-misc    { background: linear-gradient(145deg, #101018, #0a0a14); border-color: #202040; }
 
   .kpi-label {
-    font-size: 12px; font-weight: 800;
+    font-size: 14px; font-weight: 800;
     text-transform: uppercase; letter-spacing: 0.3px;
     text-align: center; line-height: 1.2; color: var(--text);
     order: 2;
   }
   .kpi-count {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px; line-height: 1;
+    font-size: 34px; line-height: 1;
     order: 1;
-    opacity: 0.65;
+    opacity: 0.75;
   }
 
   .cat-for     .kpi-count { color: #00e676; }
@@ -329,28 +329,28 @@
     color: var(--text-dim); margin-bottom: 14px;
     font-weight: 600; letter-spacing: 1px;
   }
-  #stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #stats-table { width: 100%; border-collapse: collapse; font-size: 15px; }
   #stats-table th {
     background: var(--surface2); color: var(--text-dim);
-    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; padding: 9px 6px; text-align: center;
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 11px 8px; text-align: center;
     border-bottom: 1px solid var(--border); position: sticky; top: 0;
   }
   #stats-table th:first-child { text-align: left; }
   #stats-table td {
-    padding: 10px 6px; text-align: center;
+    padding: 12px 8px; text-align: center;
     border-bottom: 1px solid rgba(30,45,69,0.5);
     font-weight: 600; color: var(--text);
   }
   #stats-table td:first-child {
     text-align: left; color: var(--text-dim);
-    font-size: 11px; font-weight: 700;
+    font-size: 13px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.4px;
   }
   #stats-table td.target-col {
-    color: var(--amber); font-size: 11px; font-weight: 700;
+    color: var(--amber); font-size: 13px; font-weight: 700;
   }
-  #stats-table td.total-col { color: var(--accent); font-weight: 900; font-size: 15px; }
+  #stats-table td.total-col { color: var(--accent); font-weight: 900; font-size: 17px; }
   #stats-table td.bad  { color: var(--red) !important; font-weight: 800; }
   #stats-table td.good { color: var(--green) !important; }
   #stats-table tr:last-child td { border-bottom: none; }
@@ -472,7 +472,7 @@
     <button class="kpi-btn cat-misc"    data-kpi="Forced Turnovers"   onclick="logEvent(this,event)"><span class="kpi-label">Forced Turnovers</span><span class="kpi-count">0</span></button>
     <button class="kpi-btn cat-contest" data-kpi="Contested Won"      onclick="logEvent(this,event)"><span class="kpi-label">Contested Won</span><span class="kpi-count">0</span></button>
     <button class="kpi-btn cat-contest" data-kpi="Contested Lost"     onclick="logEvent(this,event)"><span class="kpi-label">Contested Lost</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-contest" data-kpi="Cleanly Lost"       onclick="logEvent(this,event)"><span class="kpi-label">Cleanly Lost</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-contest" data-kpi="Turnover Conceded"  onclick="logEvent(this,event)"><span class="kpi-label">Turnover Conceded</span><span class="kpi-count">0</span></button>
     <!-- Row 5: Frees + Run thru 65 -->
     <button class="kpi-btn cat-free"    data-kpi="Frees Won"          onclick="logEvent(this,event)"><span class="kpi-label">Frees Won</span><span class="kpi-count">0</span></button>
     <button class="kpi-btn cat-free"    data-kpi="Frees Lost"         onclick="logEvent(this,event)"><span class="kpi-label">Frees Lost</span><span class="kpi-count">0</span></button>
@@ -510,7 +510,7 @@
     <table id="stats-table">
       <thead>
         <tr>
-          <th>KPI Metric</th><th>Target</th><th>Qtr 1</th><th>Qtr 2</th><th>Qtr 3</th><th>Qtr 4</th><th>Total</th>
+          <th>KPI Metric</th><th>Tgt/Qtr</th><th>Qtr 1</th><th>Qtr 2</th><th>Qtr 3</th><th>Qtr 4</th><th>Total</th>
         </tr>
       </thead>
       <tbody id="stats-tbody"></tbody>
@@ -539,7 +539,7 @@ const KPI_LIST = [
   'Point (Play)','Shot Wide (Play)','Point (Free/65)','Shot Wide (Free/65)',
   'Point Against','Wide Against','Goal Against','Goal (Us)',
   'Pucks Won Us','Pucks Lost Us','Pucks Won Them','Pucks Lost Them',
-  'Forced Turnovers','Contested Won','Contested Lost','Cleanly Lost',
+  'Forced Turnovers','Contested Won','Contested Lost','Turnover Conceded',
   'Frees Won','Frees Lost','Run thru 65'
 ];
 const STORAGE_KEY = 'gaa_event_log_v6';
@@ -1079,7 +1079,7 @@ function showDisplay() {
   const rows = [
     {
       label: 'Our Scores',
-      target: '5 / Qtr',
+      target: '5',
       targetVal: 5,
       // counts: sum of Point(Play) + Point(Free/65) + Goal(Us) — each goal = 1 score
       qval: q => c('Point (Play)',q) + c('Point (Free/65)',q) + c('Goal (Us)',q),
@@ -1088,7 +1088,7 @@ function showDisplay() {
     },
     {
       label: 'Their Scores',
-      target: '4 / Qtr',
+      target: '4',
       targetVal: 4,
       qval: q => c('Point Against',q) + c('Goal Against',q),
       total: () => [1,2,3,4].reduce((s,q)=> s + c('Point Against',q) + c('Goal Against',q), 0),
@@ -1096,21 +1096,21 @@ function showDisplay() {
     },
     {
       label: 'Shots from Play Efficiency',
-      target: '70% / Qtr',
+      target: '70%',
       isPct: true,
       qval: q => { const n = c('Point (Play)',q); const d = n + c('Shot Wide (Play)',q); return {n,d}; },
       bad: (n,d) => d > 0 && (n/d) < 0.70,
     },
     {
       label: 'Shots from Spot Efficiency',
-      target: '80% / Qtr',
+      target: '80%',
       isPct: true,
       qval: q => { const n = c('Point (Free/65)',q); const d = n + c('Shot Wide (Free/65)',q); return {n,d}; },
       bad: (n,d) => d > 0 && (n/d) < 0.80,
     },
     {
       label: 'Total Shot Efficiency',
-      target: '75% / Qtr',
+      target: '75%',
       isPct: true,
       qval: q => {
         const n = c('Point (Play)',q) + c('Point (Free/65)',q);
@@ -1121,42 +1121,42 @@ function showDisplay() {
     },
     {
       label: 'Forced Turnovers',
-      target: '2 / Qtr',
+      target: '2',
       qval: q => c('Forced Turnovers',q),
       total: () => [1,2,3,4].reduce((s,q)=> s + c('Forced Turnovers',q), 0),
       bad: (v) => v < 2,
     },
     {
       label: 'Conceded Turnovers',
-      target: '2 / Qtr',
-      qval: q => c('Cleanly Lost',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Cleanly Lost',q), 0),
+      target: '2',
+      qval: q => c('Turnover Conceded',q),
+      total: () => [1,2,3,4].reduce((s,q)=> s + c('Turnover Conceded',q), 0),
       bad: (v) => v > 2,  // red if conceding too many
     },
     {
       label: 'Long Puckout Retention',
-      target: '70% / Qtr',
+      target: '70%',
       isPct: true,
       qval: q => { const n = c('Pucks Won Us',q); const d = n + c('Pucks Lost Us',q); return {n,d}; },
       bad: (n,d) => d > 0 && (n/d) < 0.70,
     },
     {
       label: 'Long Puckout Opp Success',
-      target: '50% / Qtr',
+      target: '50%',
       isPct: true,
       qval: q => { const n = c('Pucks Won Them',q); const d = n + c('Pucks Lost Them',q); return {n,d}; },
       bad: (n,d) => d > 0 && (n/d) < 0.50,
     },
     {
       label: 'Breaking Ball Success',
-      target: '51% / Qtr',
+      target: '51%',
       isPct: true,
       qval: q => { const n = c('Contested Won',q); const d = n + c('Contested Lost',q); return {n,d}; },
       bad: (n,d) => d > 0 && (n/d) < 0.51,
     },
     {
       label: 'Run Thru 65',
-      target: '7 / Qtr',
+      target: '7',
       qval: q => c('Run thru 65',q),
       total: () => [1,2,3,4].reduce((s,q)=> s + c('Run thru 65',q), 0),
       bad: (v) => v < 7,
