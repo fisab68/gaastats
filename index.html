@@ -7,36 +7,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GAA Stats">
 <title>GAA Hurling Stats</title>
-
 <!--
-  GAA HURLING STATS PWA v5
+  GAA HURLING STATS PWA v6
   ========================
-  Fully offline Progressive Web App for hurling match statistics.
-  iPad Mini (2021), Safari, Add to Home Screen.
-
-  BOTTOM ROW (5 buttons):
-    [Flow]  [Pause/Resume]  [Undo]  [Stats]  [CSV]
-
-  FLOW BUTTON (tap to advance, long-press 800ms for New Game):
-    State 1 "▶ Start Game"   → starts clock from 0:00
-    State 2 "⏸ End 1st Half" → freezes clock at half-time
-    State 3 "▶ 2nd Half"     → clock resumes from 30:00
-    State 4 "⏹ End Game"     → confirm dialog → full time
-
-  PAUSE/RESUME BUTTON:
-    Active during first_half and second_half only.
-    Accumulates paused milliseconds so they are excluded from
-    the clock and quarter calculations.
-
-  QUARTER DETECTION (automatic, time-based, pauses excluded):
-    Q1  0:00–14:59    Q2 15:00–end of 1st half
-    Q3 30:00–44:59   Q4 45:00–end of 2nd half
-
-  Quarter pills are VISUAL ONLY — no tap interaction.
-
-  CSV EXPORT works at any game state including after game over.
+  20 KPI buttons in a 4x5 grid — single tap records event + timestamp.
+  Per-quarter Q-bars on each button show where events are clustering.
+  Quarter pills show running score per quarter.
+  Stats modal has two tabs: KPI Dashboard (calculated metrics vs targets)
+  and Raw Counts (every KPI broken down by quarter, grouped by category).
+  Fully offline via Service Worker. Persists across reloads via localStorage.
 -->
-
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;900&display=swap');
 
@@ -74,89 +54,96 @@
     flex-direction: column;
     height: 100vh;
     padding: 8px 8px 6px;
-    gap: 6px;
+    gap: 5px;
   }
 
-  /* ── SCOREBOARD ── */
+  /* SCOREBOARD */
   #scoreboard {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 6px 14px;
+    padding: 5px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
   }
-
   .score-team { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-
-  .score-label {
-    font-size: 9px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--text-dim);
-  }
-
+  .score-label { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+  .score-block { display: flex; align-items: baseline; gap: 5px; }
   .score-value {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 36px; line-height: 1; letter-spacing: 2px;
     color: var(--text); transition: color 0.2s;
   }
-  .score-value.flash-score { color: var(--flash); }
-
-  #match-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-
-  #quarter-label {
-    font-size: 10px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--accent);
-  }
-
-  #match-clock {
+  .score-total {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px; color: var(--text); letter-spacing: 1px;
-    transition: color 0.2s;
+    font-size: 20px; line-height: 1;
+    color: var(--text-dim); transition: color 0.2s;
   }
-  #match-clock.paused  { color: var(--amber); }
+  .score-value.flash-score, .score-total.flash-score { color: var(--flash); }
+  #match-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #quarter-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+  #match-clock { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--text); letter-spacing: 1px; transition: color 0.2s; }
+  #match-clock.paused { color: var(--amber); }
+  #game-status { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
 
-  #game-status {
-    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; color: var(--text-dim);
+  /* Clock row with adjust buttons */
+  #clock-row { display: flex; align-items: center; gap: 6px; }
+  .clock-adj {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 900;
+    letter-spacing: 0px; line-height: 1;
+    padding: 5px 7px;
+    border-radius: 7px;
+    border: 1.5px solid rgba(107,122,153,0.3);
+    background: rgba(107,122,153,0.1);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+    white-space: nowrap;
   }
+  .clock-adj:active { transform: scale(0.88); }
+  .clock-adj.minus:active { background: rgba(255,61,90,0.2); border-color: rgba(255,61,90,0.5); color: var(--red); }
+  .clock-adj.plus:active  { background: rgba(0,230,118,0.2); border-color: rgba(0,230,118,0.5); color: var(--green); }
+  .clock-adj.disabled { opacity: 0.2; pointer-events: none; }
 
-  /* ── QUARTER INDICATOR PILLS (visual only) ── */
+  /* QUARTER PILLS */
   #quarter-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 5px;
     flex-shrink: 0;
   }
-
   .qtr-pill {
     background: var(--surface2);
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-dim);
-    font-size: 12px; font-weight: 700;
-    letter-spacing: 1px; padding: 9px 4px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; padding: 7px 4px;
     text-transform: uppercase;
     text-align: center;
     pointer-events: none;
     transition: background 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
+    display: flex; flex-direction: column; align-items: center; gap: 0px;
   }
   .qtr-pill.active {
     background: var(--accent); border-color: var(--accent);
     color: #000; box-shadow: 0 0 14px rgba(0,212,255,0.4);
   }
-  .qtr-pill.done {
-    border-color: rgba(0,212,255,0.3);
-    color: rgba(0,212,255,0.5);
-  }
+  .qtr-pill.done { border-color: rgba(0,212,255,0.3); color: rgba(0,212,255,0.5); }
+  .qtr-score { font-size: 10px; font-weight: 700; margin-top: 1px; }
+  .qtr-pill.active .qtr-score { color: #000; }
+  .qtr-pill.done .qtr-score { color: rgba(0,212,255,0.6); }
+  .qtr-pill:not(.active):not(.done) .qtr-score { color: var(--text-dim); opacity: 0.5; }
 
-  /* ── KPI GRID ── */
+  /* KPI GRID */
   #kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(5, 1fr);
-    gap: 6px;
+    gap: 5px;
     flex: 1;
     min-height: 0;
   }
@@ -168,37 +155,60 @@
     cursor: pointer;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 3px; padding: 6px 4px;
+    gap: 0px; padding: 4px 4px 2px;
     transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
     -webkit-tap-highlight-color: transparent;
   }
 
-  .kpi-btn.cat-for     { background: linear-gradient(145deg, #0d2010, #0a1a0d); border-color: #1a4020; }
-  .kpi-btn.cat-against { background: linear-gradient(145deg, #200d0d, #1a0a0a); border-color: #401a1a; }
-  .kpi-btn.cat-puck    { background: linear-gradient(145deg, #0d1520, #0a1018); border-color: #1a2a40; }
-  .kpi-btn.cat-contest { background: linear-gradient(145deg, #18110d, #130d08); border-color: #3a2a10; }
-  .kpi-btn.cat-free    { background: linear-gradient(145deg, #150d20, #100a1a); border-color: #301a40; }
-  .kpi-btn.cat-misc    { background: linear-gradient(145deg, #101018, #0a0a14); border-color: #202040; }
+    .kpi-btn.cat-green  { background: linear-gradient(145deg, #0d2010, #0a1a0d); border-color: #1a4020; }
+  .kpi-btn.cat-red    { background: linear-gradient(145deg, #200d0d, #1a0a0a); border-color: #401a1a; }
+  .kpi-btn.cat-yellow { background: linear-gradient(145deg, #1a1500, #131000); border-color: #3a3000; }
+  .kpi-btn.cat-orange { background: linear-gradient(145deg, #1a0f00, #140b00); border-color: #3a2000; }
+  .kpi-btn.cat-purple { background: linear-gradient(145deg, #150d20, #100a1a); border-color: #301a40; }
+  .kpi-btn.cat-blue   { background: linear-gradient(145deg, #0d1520, #0a1018); border-color: #1a2a40; }
 
   .kpi-label {
-    font-size: 14px; font-weight: 800;
+    font-size: 12px; font-weight: 800;
     text-transform: uppercase; letter-spacing: 0.3px;
-    text-align: center; line-height: 1.2; color: var(--text);
-    order: 2;
+    text-align: center; line-height: 1.15; color: var(--text);
+    order: 2; margin-top: 1px;
   }
   .kpi-count {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 34px; line-height: 1;
-    order: 1;
-    opacity: 0.75;
+    font-size: 32px; line-height: 1;
+    order: 1; opacity: 0.85;
   }
+  .cat-green  .kpi-count { color: #00e676; }
+  .cat-red    .kpi-count { color: #ff3d5a; }
+  .cat-yellow .kpi-count { color: #ffe082; }
+  .cat-orange .kpi-count { color: #ffab40; }
+  .cat-purple .kpi-count { color: #b388ff; }
+  .cat-blue   .kpi-count { color: #00d4ff; }
 
-  .cat-for     .kpi-count { color: #00e676; }
-  .cat-against .kpi-count { color: #ff3d5a; }
-  .cat-puck    .kpi-count { color: #00d4ff; }
-  .cat-contest .kpi-count { color: #ffab40; }
-  .cat-free    .kpi-count { color: #b388ff; }
-  .cat-misc    .kpi-count { color: #90a4ae; }
+  /* Q-BAR: mini per-quarter bar at bottom of each button */
+  .kpi-qbar {
+    order: 3;
+    display: flex;
+    width: 88%;
+    height: 5px;
+    margin-top: 4px;
+    gap: 2px;
+    border-radius: 3px;
+  }
+  .qbar-seg {
+    flex: 1;
+    height: 100%;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.07);
+    transition: background 0.25s, opacity 0.25s;
+  }
+  .cat-green  .qbar-seg.lit { background: rgba(0,230,118,0.65); }
+  .cat-red    .qbar-seg.lit { background: rgba(255,61,90,0.65); }
+  .cat-yellow .qbar-seg.lit { background: rgba(255,224,130,0.65); }
+  .cat-orange .qbar-seg.lit { background: rgba(255,171,64,0.65); }
+  .cat-purple .qbar-seg.lit { background: rgba(179,136,255,0.65); }
+  .cat-blue   .qbar-seg.lit { background: rgba(0,212,255,0.65); }
+  .qbar-seg.cur { box-shadow: 0 0 5px rgba(255,255,255,0.4); }
 
   /* Flash overlay */
   .kpi-btn::after {
@@ -222,16 +232,15 @@
     100% { transform: scale(4); opacity: 0; }
   }
 
-  /* ── BOTTOM ROW ── */
+  /* BOTTOM ROW */
   #bottom-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 5px;
     flex-shrink: 0;
   }
-
   .action-btn {
-    padding: 12px 4px;
+    padding: 11px 4px;
     border-radius: var(--radius-sm);
     font-size: 11px; font-weight: 700;
     letter-spacing: 0.5px; text-transform: uppercase;
@@ -240,38 +249,16 @@
     text-align: center; line-height: 1.3;
   }
   .action-btn:active { opacity: 0.72; transform: scale(0.95); }
-
-  /* Flow button colours set dynamically via JS */
-  #flow-btn    { font-size: 10px; }
-
-  /* Pause button — two visual states */
-  #pause-btn   {
-    background: rgba(255,171,64,0.12);
-    border-color: rgba(255,171,64,0.4);
-    color: var(--amber);
-  }
-  #pause-btn.resuming {
-    background: rgba(0,230,118,0.15);
-    border-color: rgba(0,230,118,0.5);
-    color: var(--green);
-  }
-  #pause-btn.disabled-btn {
-    background: rgba(107,122,153,0.08);
-    border-color: rgba(107,122,153,0.2);
-    color: rgba(107,122,153,0.35);
-    pointer-events: none;
-  }
-
+  #flow-btn { font-size: 10px; }
+  #pause-btn { background: rgba(255,171,64,0.12); border-color: rgba(255,171,64,0.4); color: var(--amber); }
+  #pause-btn.resuming { background: rgba(0,230,118,0.15); border-color: rgba(0,230,118,0.5); color: var(--green); }
+  #pause-btn.disabled-btn { background: rgba(107,122,153,0.08); border-color: rgba(107,122,153,0.2); color: rgba(107,122,153,0.35); pointer-events: none; }
   #undo-btn    { background: rgba(255,61,90,0.12);   border-color: rgba(255,61,90,0.4);   color: var(--red);    }
   #display-btn { background: rgba(0,212,255,0.12);   border-color: rgba(0,212,255,0.4);   color: var(--accent); }
   #export-btn  { background: rgba(179,136,255,0.12); border-color: rgba(179,136,255,0.4); color: var(--purple); }
+  #flow-btn.long-pressing { box-shadow: 0 0 0 3px rgba(255,61,90,0.6); }
 
-  /* Long-press hint ring on flow button */
-  #flow-btn.long-pressing {
-    box-shadow: 0 0 0 3px rgba(255,61,90,0.6);
-  }
-
-  /* ── CONFIRM DIALOG ── */
+  /* CONFIRM DIALOG */
   #confirm-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.88); z-index: 200;
@@ -279,91 +266,90 @@
     padding: 24px; backdrop-filter: blur(8px);
   }
   #confirm-overlay.visible { display: flex; }
-
   #confirm-box {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 20px; padding: 28px 24px;
     max-width: 360px; width: 100%; text-align: center;
   }
-  #confirm-box h3 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px; letter-spacing: 2px; margin-bottom: 10px;
-  }
-  #confirm-box p {
-    font-size: 14px; color: var(--text-dim);
-    line-height: 1.5; margin-bottom: 22px;
-  }
+  #confirm-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; margin-bottom: 10px; }
+  #confirm-box p { font-size: 14px; color: var(--text-dim); line-height: 1.5; margin-bottom: 22px; }
   .confirm-btns { display: flex; gap: 10px; }
-  .confirm-btns button {
-    flex: 1; padding: 14px; border-radius: var(--radius-sm);
-    font-size: 14px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase;
-    cursor: pointer; border: 1.5px solid;
-  }
-  #confirm-yes          { background: var(--red);     border-color: var(--red);    color: #fff; }
-  #confirm-yes.positive { background: var(--green);   border-color: var(--green);  color: #000; }
-  #confirm-no           { background: var(--surface2); border-color: var(--border); color: var(--text); }
+  .confirm-btns button { flex: 1; padding: 14px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border: 1.5px solid; }
+  #confirm-yes { background: var(--red); border-color: var(--red); color: #fff; }
+  #confirm-yes.positive { background: var(--green); border-color: var(--green); color: #000; }
+  #confirm-no  { background: var(--surface2); border-color: var(--border); color: var(--text); }
 
-  /* ── STATS MODAL ── */
+  /* STATS MODAL */
   #modal-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.85); z-index: 100;
     align-items: center; justify-content: center;
-    padding: 14px; backdrop-filter: blur(6px);
+    padding: 12px; backdrop-filter: blur(6px);
   }
   #modal-overlay.visible { display: flex; }
-
   #modal-box {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 18px; padding: 18px;
-    width: 100%; max-width: 720px;
-    max-height: 88vh; overflow-y: auto;
+    border-radius: 18px; padding: 16px;
+    width: 100%; max-width: 760px;
+    max-height: 92vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
   }
-  #modal-box h2 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px; letter-spacing: 2px;
-    color: var(--accent); margin-bottom: 4px; text-align: center;
+  #modal-box h2 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; color: var(--accent); text-align: center; }
+  #modal-score-summary { text-align: center; font-size: 13px; color: var(--text-dim); font-weight: 700; letter-spacing: 1px; }
+
+  /* Tabs */
+  #modal-tabs { display: flex; gap: 6px; flex-shrink: 0; }
+  .modal-tab {
+    flex: 1; padding: 9px 4px;
+    background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-dim);
+    font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; text-align: center; cursor: pointer;
+    transition: all 0.2s;
   }
-  #modal-score-summary {
-    text-align: center; font-size: 12px;
-    color: var(--text-dim); margin-bottom: 14px;
-    font-weight: 600; letter-spacing: 1px;
-  }
-  #stats-table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  #stats-table th {
+  .modal-tab.active { background: var(--accent); border-color: var(--accent); color: #000; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  #stats-table, #raw-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #stats-table th, #raw-table th {
     background: var(--surface2); color: var(--text-dim);
-    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; padding: 11px 8px; text-align: center;
-    border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 10px 6px; text-align: center;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2;
   }
-  #stats-table th:first-child { text-align: left; }
-  #stats-table td {
-    padding: 12px 8px; text-align: center;
+  #stats-table th:first-child, #raw-table th:first-child { text-align: left; }
+  #stats-table td, #raw-table td {
+    padding: 11px 6px; text-align: center;
     border-bottom: 1px solid rgba(30,45,69,0.5);
     font-weight: 600; color: var(--text);
   }
-  #stats-table td:first-child {
-    text-align: left; color: var(--text-dim);
-    font-size: 13px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.4px;
-  }
-  #stats-table td.target-col {
-    color: var(--amber); font-size: 13px; font-weight: 700;
-  }
-  #stats-table td.total-col { color: var(--accent); font-weight: 900; font-size: 17px; }
+  #stats-table td:first-child, #raw-table td:first-child { text-align: left; color: var(--text-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+  #stats-table td.target-col { color: var(--amber); font-size: 12px; font-weight: 700; }
+  #stats-table td.total-col, #raw-table td.total-col { color: var(--accent); font-weight: 900; font-size: 16px; }
   #stats-table td.bad  { color: var(--red) !important; font-weight: 800; }
   #stats-table td.good { color: var(--green) !important; }
-  #stats-table tr:last-child td { border-bottom: none; }
-  #stats-table tr:hover td { background: rgba(255,255,255,0.03); }
-  #close-modal-btn {
-    margin-top: 14px; width: 100%; padding: 16px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-size: 15px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+  #stats-table tr:last-child td, #raw-table tr:last-child td { border-bottom: none; }
+  #stats-table tr:hover td, #raw-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+  /* Category headers in raw counts table */
+  tr.cat-header td {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-dim) !important;
+    font-size: 10px !important; font-weight: 900 !important;
+    letter-spacing: 2px !important; text-transform: uppercase !important;
+    padding: 7px 6px !important; border-bottom: none !important;
   }
 
-  /* ── CSV download modal (Safari fallback) ── */
+  #close-modal-btn {
+    margin-top: 4px; width: 100%; padding: 15px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 15px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* CSV overlay */
   #csv-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.88); z-index: 300;
@@ -371,33 +357,13 @@
     padding: 24px; backdrop-filter: blur(8px);
   }
   #csv-overlay.visible { display: flex; }
-  #csv-box {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 20px; padding: 24px;
-    max-width: 420px; width: 100%; text-align: center;
-  }
-  #csv-box h3 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px; letter-spacing: 2px; color: var(--accent);
-    margin-bottom: 8px;
-  }
+  #csv-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; max-width: 420px; width: 100%; text-align: center; }
+  #csv-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; color: var(--accent); margin-bottom: 8px; }
   #csv-box p { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
-  #csv-link {
-    display: block; padding: 14px;
-    background: rgba(179,136,255,0.15); border: 1.5px solid rgba(179,136,255,0.5);
-    border-radius: var(--radius-sm); color: var(--purple);
-    font-size: 14px; font-weight: 700; letter-spacing: 1px;
-    text-decoration: none; text-transform: uppercase; margin-bottom: 10px;
-  }
-  #csv-close {
-    width: 100%; padding: 12px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text-dim);
-    font-size: 13px; font-weight: 700; cursor: pointer;
-    letter-spacing: 1px; text-transform: uppercase;
-  }
+  #csv-link { display: block; padding: 14px; background: rgba(179,136,255,0.15); border: 1.5px solid rgba(179,136,255,0.5); border-radius: var(--radius-sm); color: var(--purple); font-size: 14px; font-weight: 700; letter-spacing: 1px; text-decoration: none; text-transform: uppercase; margin-bottom: 10px; }
+  #csv-close { width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; }
 
-  /* ── GAME OVER BANNER ── */
+  /* Game over banner */
   #game-over-banner {
     display: none; position: fixed; top: 0; left: 0; right: 0;
     background: linear-gradient(90deg, #00e676, #00d4ff);
@@ -408,9 +374,9 @@
   }
   #game-over-banner.visible { display: block; }
 
-  /* ── TOAST ── */
+  /* Toast */
   #toast {
-    position: fixed; bottom: 80px; left: 50%;
+    position: fixed; bottom: 72px; left: 50%;
     transform: translateX(-50%) translateY(20px);
     background: var(--surface2); border: 1px solid var(--border);
     border-radius: 30px; padding: 8px 20px;
@@ -430,53 +396,63 @@
   <div id="scoreboard">
     <div class="score-team">
       <div class="score-label">Us</div>
-      <div class="score-value" id="score-us">0-00</div>
+      <div class="score-block">
+        <div class="score-value" id="score-us">0-00</div>
+        <div class="score-total" id="score-us-pts">(0)</div>
+      </div>
     </div>
     <div id="match-info">
       <div id="quarter-label">Pre-Match</div>
-      <div id="match-clock">00:00</div>
+      <div id="clock-row">
+        <button class="clock-adj minus disabled" id="clock-minus" onclick="adjustClock(-30)">−30s</button>
+        <div id="match-clock">00:00</div>
+        <button class="clock-adj plus disabled" id="clock-plus" onclick="adjustClock(+30)">+30s</button>
+      </div>
       <div id="game-status">Long-press Flow to reset</div>
     </div>
     <div class="score-team">
       <div class="score-label">Them</div>
-      <div class="score-value" id="score-them">0-00</div>
+      <div class="score-block">
+        <div class="score-total" id="score-them-pts">(0)</div>
+        <div class="score-value" id="score-them">0-00</div>
+      </div>
     </div>
   </div>
 
-  <!-- QUARTER INDICATOR PILLS -->
+  <!-- QUARTER PILLS -->
   <div id="quarter-row">
-    <div class="qtr-pill" data-q="1">Qtr 1</div>
-    <div class="qtr-pill" data-q="2">Qtr 2</div>
-    <div class="qtr-pill" data-q="3">Qtr 3</div>
-    <div class="qtr-pill" data-q="4">Qtr 4</div>
+    <div class="qtr-pill" data-q="1">Q1<span class="qtr-score" id="q1-score"></span></div>
+    <div class="qtr-pill" data-q="2">Q2<span class="qtr-score" id="q2-score"></span></div>
+    <div class="qtr-pill" data-q="3">Q3<span class="qtr-score" id="q3-score"></span></div>
+    <div class="qtr-pill" data-q="4">Q4<span class="qtr-score" id="q4-score"></span></div>
   </div>
 
   <!-- KPI GRID 4×5 -->
   <div id="kpi-grid">
-    <!-- Row 1: Play scoring -->
-    <button class="kpi-btn cat-for"     data-kpi="Point (Play)"       onclick="logEvent(this,event)"><span class="kpi-label">Point (Play)</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-misc"    data-kpi="Shot Wide (Play)"   onclick="logEvent(this,event)"><span class="kpi-label">Shot Wide (Play)</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-free"    data-kpi="Point (Free/65)"    onclick="logEvent(this,event)"><span class="kpi-label">Point (Free/65)</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-misc"    data-kpi="Shot Wide (Free/65)" onclick="logEvent(this,event)"><span class="kpi-label">Shot Wide (Free/65)</span><span class="kpi-count">0</span></button>
-    <!-- Row 2: Scoring against + goal for -->
-    <button class="kpi-btn cat-against" data-kpi="Point Against"      onclick="logEvent(this,event)"><span class="kpi-label">Point Against</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-against" data-kpi="Wide Against"       onclick="logEvent(this,event)"><span class="kpi-label">Wide Against</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-against" data-kpi="Goal Against"       onclick="logEvent(this,event)"><span class="kpi-label">Goal Against</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-for"     data-kpi="Goal (Us)"          onclick="logEvent(this,event)"><span class="kpi-label">Goal (Us)</span><span class="kpi-count">0</span></button>
-    <!-- Row 3: Puckouts -->
-    <button class="kpi-btn cat-puck"    data-kpi="Pucks Won Us"       onclick="logEvent(this,event)"><span class="kpi-label">Pucks Won Us</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-puck"    data-kpi="Pucks Lost Us"      onclick="logEvent(this,event)"><span class="kpi-label">Pucks Lost Us</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-puck"    data-kpi="Pucks Won Them"     onclick="logEvent(this,event)"><span class="kpi-label">Pucks Won Them</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-puck"    data-kpi="Pucks Lost Them"    onclick="logEvent(this,event)"><span class="kpi-label">Pucks Lost Them</span><span class="kpi-count">0</span></button>
-    <!-- Row 4: Contest & turnovers -->
-    <button class="kpi-btn cat-misc"    data-kpi="Forced Turnovers"   onclick="logEvent(this,event)"><span class="kpi-label">Forced Turnovers</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-contest" data-kpi="Contested Won"      onclick="logEvent(this,event)"><span class="kpi-label">Contested Won</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-contest" data-kpi="Contested Lost"     onclick="logEvent(this,event)"><span class="kpi-label">Contested Lost</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-contest" data-kpi="Turnover Conceded"  onclick="logEvent(this,event)"><span class="kpi-label">Turnover Conceded</span><span class="kpi-count">0</span></button>
-    <!-- Row 5: Frees + Run thru 65 -->
-    <button class="kpi-btn cat-free"    data-kpi="Frees Won"          onclick="logEvent(this,event)"><span class="kpi-label">Frees Won</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-free"    data-kpi="Frees Lost"         onclick="logEvent(this,event)"><span class="kpi-label">Frees Lost</span><span class="kpi-count">0</span></button>
-    <button class="kpi-btn cat-misc"    data-kpi="Run thru 65"        onclick="logEvent(this,event)"><span class="kpi-label">Run thru 65</span><span class="kpi-count">0</span></button>
+    <button class="kpi-btn cat-green"  data-kpi="Point – Play (Us)"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Shot Miss – Play"    onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Play</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-green"  data-kpi="Point – Free (Us)"     onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Shot Miss – Free" onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Free</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+
+    <button class="kpi-btn cat-red"    data-kpi="Point – Them"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-orange" data-kpi="Shot Miss – Them"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-red"    data-kpi="Goal – Them"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Goal – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-green"  data-kpi="Goal – Us"           onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Goal – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+
+    <button class="kpi-btn cat-purple" data-kpi="PO Win – Us"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Win – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-red"    data-kpi="PO Lost – Us"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Lost – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-blue"   data-kpi="PO Win – Them"      onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Win – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-blue"   data-kpi="PO Lost – Them"     onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Lost – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+
+    <button class="kpi-btn cat-purple" data-kpi="Turnover – Forced"    onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Forced</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-purple" data-kpi="Contest Win"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Contest Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-red"    data-kpi="Contest Lost"      onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Contest Lost</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-purple" data-kpi="Turnover – Us"   onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+
+    <button class="kpi-btn cat-purple" data-kpi="Free Won – Us"           onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Free Won – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-red"    data-kpi="Free Won – Them"          onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Free Won – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Run thru 65"         onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <button class="kpi-btn cat-red"    data-kpi="Turnover – Them"         onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
   </div>
 
   <!-- BOTTOM ROW -->
@@ -507,23 +483,35 @@
   <div id="modal-box">
     <h2>Match Statistics</h2>
     <div id="modal-score-summary"></div>
-    <table id="stats-table">
-      <thead>
-        <tr>
-          <th>KPI Metric</th><th>Tgt/Qtr</th><th>Qtr 1</th><th>Qtr 2</th><th>Qtr 3</th><th>Qtr 4</th><th>Total</th>
-        </tr>
-      </thead>
-      <tbody id="stats-tbody"></tbody>
-    </table>
+    <div id="modal-tabs">
+      <div class="modal-tab active" data-tab="kpi" onclick="switchTab('kpi')">📈 KPI Dashboard</div>
+      <div class="modal-tab"        data-tab="raw" onclick="switchTab('raw')">📋 Raw Counts</div>
+    </div>
+    <div class="tab-content active" id="tab-kpi">
+      <table id="stats-table">
+        <thead>
+          <tr><th>KPI Metric</th><th>Target</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr>
+        </thead>
+        <tbody id="stats-tbody"></tbody>
+      </table>
+    </div>
+    <div class="tab-content" id="tab-raw">
+      <table id="raw-table">
+        <thead>
+          <tr><th>Event</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr>
+        </thead>
+        <tbody id="raw-tbody"></tbody>
+      </table>
+    </div>
     <button id="close-modal-btn" onclick="hideDisplay()">Close</button>
   </div>
 </div>
 
-<!-- CSV DOWNLOAD FALLBACK (Safari) -->
+<!-- CSV FALLBACK (Safari) -->
 <div id="csv-overlay">
   <div id="csv-box">
     <h3>📥 Export CSV</h3>
-    <p>Tap the link below to open, then use Share → Save to Files.</p>
+    <p>Tap the link below, then use Share → Save to Files.</p>
     <a id="csv-link" href="#">Download CSV</a>
     <button id="csv-close" onclick="closeCsvOverlay()">Close</button>
   </div>
@@ -536,49 +524,38 @@
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 const KPI_LIST = [
-  'Point (Play)','Shot Wide (Play)','Point (Free/65)','Shot Wide (Free/65)',
-  'Point Against','Wide Against','Goal Against','Goal (Us)',
-  'Pucks Won Us','Pucks Lost Us','Pucks Won Them','Pucks Lost Them',
-  'Forced Turnovers','Contested Won','Contested Lost','Turnover Conceded',
-  'Frees Won','Frees Lost','Run thru 65'
+  'Point – Play (Us)','Shot Miss – Play','Point – Free (Us)','Shot Miss – Free',
+  'Point – Them','Shot Miss – Them','Goal – Them','Goal – Us',
+  'PO Win – Us','PO Lost – Us','PO Win – Them','PO Lost – Them',
+  'Turnover – Forced','Contest Win','Contest Lost','Turnover – Us',
+  'Free Won – Us','Free Won – Them','Run thru 65','Turnover – Them'
 ];
-const STORAGE_KEY = 'gaa_event_log_v6';
-const STATE_KEY   = 'gaa_game_state_v6';
 
-// Quarter boundaries (total match seconds, paused time excluded)
-const Q1_Q2   = 15 * 60;  //  900 s — Q1→Q2 within 1st half
-const H_START = 30 * 60;  // 1800 s — clock reads 30:00 at 2nd half kick-off
-const Q3_Q4   = 45 * 60;  // 2700 s — Q3→Q4 within 2nd half
+const KPI_GROUPS = [
+  { label: '⬢ Scoring — Us',       kpis: ['Point – Play (Us)','Shot Miss – Play','Point – Free (Us)','Shot Miss – Free','Goal – Us'] },
+  { label: '⬢ Scoring — Them',     kpis: ['Point – Them','Shot Miss – Them','Goal – Them'] },
+  { label: '⬢ Puckouts — Us',      kpis: ['PO Win – Us','PO Lost – Us'] },
+  { label: '⬢ Puckouts — Them',    kpis: ['PO Win – Them','PO Lost – Them'] },
+  { label: '⬢ Possession',         kpis: ['Turnover – Forced','Turnover – Us','Turnover – Them','Contest Win','Contest Lost'] },
+  { label: '⬢ Frees & Discipline', kpis: ['Free Won – Us','Free Won – Them','Run thru 65'] },
+];
+
+const STORAGE_KEY = 'gaa_event_log_v8';
+const STATE_KEY   = 'gaa_game_state_v8';
+const Q1_Q2   = 15 * 60;
+const H_START = 30 * 60;
+const Q3_Q4   = 45 * 60;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
-//
-// gameFlow: 'pre' | 'first_half' | 'half_time' | 'second_half' | 'ended'
-//
-// Timing (all Date.now() ms):
-//   firstHalfStart, firstHalfEnd, secondHalfStart, secondHalfEnd
-//   pausedAt       — non-null when currently paused
-//   firstHalfPausedMs  — total ms paused during 1st half
-//   secondHalfPausedMs — total ms paused during 2nd half
-//
-// Clock formula:
-//   1st half active  → now - firstHalfStart - firstHalfPausedMs
-//   half_time        → firstHalfEnd - firstHalfStart - firstHalfPausedMs (frozen)
-//   2nd half active  → H_START + (now - secondHalfStart - secondHalfPausedMs)
-//   ended            → frozen at secondHalfEnd value
 // ─────────────────────────────────────────────────────────────────────────────
 let eventLog = [];
 let state = {
   gameFlow: 'pre',
-  firstHalfStart:     null,
-  firstHalfEnd:       null,
-  firstHalfPausedMs:  0,
-  secondHalfStart:    null,
-  secondHalfEnd:      null,
-  secondHalfPausedMs: 0,
-  pausedAt:           null,   // timestamp when pause started (null = not paused)
+  firstHalfStart: null, firstHalfEnd: null, firstHalfPausedMs: 0,
+  secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0,
+  pausedAt: null,
 };
-
 let clockInterval = null;
 let pendingAction = null;
 
@@ -592,46 +569,30 @@ function init() {
   if (savedState) state    = JSON.parse(savedState);
   refreshAll();
   clockInterval = setInterval(refreshClockDisplay, 500);
-  registerServiceWorker();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   setupFlowLongPress();
 }
 
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator)
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// MATCH SECONDS  (paused time excluded)
+// TIMING
 // ─────────────────────────────────────────────────────────────────────────────
 function getMatchSeconds(atMs) {
-  const now = (atMs !== undefined) ? atMs : Date.now();
-
+  const now = atMs !== undefined ? atMs : Date.now();
   if (state.gameFlow === 'pre') return 0;
 
-  // --- first half elapsed ---
   let fhEnd = state.firstHalfEnd || now;
-  // If currently paused during first half, freeze at pausedAt
   if (state.gameFlow === 'first_half' && state.pausedAt) fhEnd = state.pausedAt;
   const fhSecs = state.firstHalfStart
-    ? Math.max(0, Math.floor((fhEnd - state.firstHalfStart - state.firstHalfPausedMs) / 1000))
-    : 0;
-
+    ? Math.max(0, Math.floor((fhEnd - state.firstHalfStart - state.firstHalfPausedMs) / 1000)) : 0;
   if (state.gameFlow === 'first_half' || state.gameFlow === 'half_time') return fhSecs;
 
-  // --- second half elapsed ---
   let shEnd = state.secondHalfEnd || now;
   if (state.gameFlow === 'second_half' && state.pausedAt) shEnd = state.pausedAt;
   const shSecs = state.secondHalfStart
-    ? Math.max(0, Math.floor((shEnd - state.secondHalfStart - state.secondHalfPausedMs) / 1000))
-    : 0;
-
+    ? Math.max(0, Math.floor((shEnd - state.secondHalfStart - state.secondHalfPausedMs) / 1000)) : 0;
   return H_START + shSecs;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUARTER FROM SECONDS
-// ─────────────────────────────────────────────────────────────────────────────
 function getQuarterFromSeconds(secs) {
   if (secs < Q1_Q2)   return 1;
   if (secs < H_START) return 2;
@@ -640,7 +601,7 @@ function getQuarterFromSeconds(secs) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME FLOW BUTTON  (tap = advance, long-press = new game)
+// GAME FLOW
 // ─────────────────────────────────────────────────────────────────────────────
 function advanceGameFlow() {
   switch (state.gameFlow) {
@@ -648,164 +609,86 @@ function advanceGameFlow() {
     case 'first_half':  doEndFirstHalf();    break;
     case 'half_time':   doStartSecondHalf(); break;
     case 'second_half': confirmEndGame();    break;
-    case 'ended':
-      showToast('Full Time — long-press ▶ to start a new game');
-      break;
+    case 'ended': showToast('Full Time — long-press ▶ to start a new game'); break;
   }
 }
 
 function doStartGame() {
-  state.gameFlow           = 'first_half';
-  state.firstHalfStart     = Date.now();
-  state.firstHalfEnd       = null;
-  state.firstHalfPausedMs  = 0;
-  state.secondHalfStart    = null;
-  state.secondHalfEnd      = null;
-  state.secondHalfPausedMs = 0;
-  state.pausedAt           = null;
-  saveState();
-  refreshAll();
-  showToast('🏁 Kick off — 1st Half');
+  Object.assign(state, {
+    gameFlow: 'first_half',
+    firstHalfStart: Date.now(), firstHalfEnd: null, firstHalfPausedMs: 0,
+    secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0,
+    pausedAt: null,
+  });
+  saveState(); refreshAll(); showToast('🏁 Kick off — 1st Half');
 }
 
 function doEndFirstHalf() {
-  // If paused when half-time called, count up the pause first
-  if (state.pausedAt) {
-    state.firstHalfPausedMs += Date.now() - state.pausedAt;
-    state.pausedAt = null;
-  }
-  state.gameFlow    = 'half_time';
-  state.firstHalfEnd = Date.now();
-  saveState();
-  refreshAll();
-  showToast('⏸ Half Time');
+  if (state.pausedAt) { state.firstHalfPausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
+  state.gameFlow = 'half_time'; state.firstHalfEnd = Date.now();
+  saveState(); refreshAll(); showToast('⏸ Half Time');
 }
 
 function doStartSecondHalf() {
-  state.gameFlow           = 'second_half';
-  state.secondHalfStart    = Date.now();
-  state.secondHalfEnd      = null;
-  state.secondHalfPausedMs = 0;
-  state.pausedAt           = null;
-  saveState();
-  refreshAll();
-  showToast('▶ 2nd Half — clock at 30:00');
+  Object.assign(state, { gameFlow: 'second_half', secondHalfStart: Date.now(), secondHalfEnd: null, secondHalfPausedMs: 0, pausedAt: null });
+  saveState(); refreshAll(); showToast('▶ 2nd Half — clock at 30:00');
 }
 
 function doEndGame() {
-  if (state.pausedAt) {
-    state.secondHalfPausedMs += Date.now() - state.pausedAt;
-    state.pausedAt = null;
-  }
-  state.gameFlow     = 'ended';
-  state.secondHalfEnd = Date.now();
+  if (state.pausedAt) { state.secondHalfPausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
+  state.gameFlow = 'ended'; state.secondHalfEnd = Date.now();
   saveState();
   document.getElementById('game-over-banner').classList.add('visible');
-  refreshAll();
-  showToast('⏹ Full Time');
+  refreshAll(); showToast('⏹ Full Time');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAUSE / RESUME
-// ─────────────────────────────────────────────────────────────────────────────
 function togglePause() {
-  // Only valid during active halves
   if (state.gameFlow !== 'first_half' && state.gameFlow !== 'second_half') {
-    showToast('Pause is only available during an active half');
-    return;
+    showToast('Pause only available during active half'); return;
   }
-
   if (state.pausedAt !== null) {
-    // ── RESUME ──
-    const pauseDuration = Date.now() - state.pausedAt;
-    if (state.gameFlow === 'first_half') {
-      state.firstHalfPausedMs += pauseDuration;
-    } else {
-      state.secondHalfPausedMs += pauseDuration;
-    }
+    const dur = Date.now() - state.pausedAt;
+    if (state.gameFlow === 'first_half') state.firstHalfPausedMs += dur;
+    else state.secondHalfPausedMs += dur;
     state.pausedAt = null;
-    saveState();
-    refreshAll();
-    showToast('▶ Resumed');
+    saveState(); refreshAll(); showToast('▶ Resumed');
   } else {
-    // ── PAUSE ──
     state.pausedAt = Date.now();
-    saveState();
-    refreshAll();
-    showToast('⏸ Game paused');
+    saveState(); refreshAll(); showToast('⏸ Game paused');
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LONG-PRESS on flow button → New Game
+// LONG PRESS → New Game
 // ─────────────────────────────────────────────────────────────────────────────
-let longPressTimer  = null;
-let longPressActive = false;
+let lpTimer = null;
 
 function setupFlowLongPress() {
   const btn = document.getElementById('flow-btn');
-
-  function startLP(e) {
-    longPressActive = false;
-    btn.classList.add('long-pressing');
-    longPressTimer = setTimeout(() => {
-      longPressActive = true;
-      btn.classList.remove('long-pressing');
-      confirmNewGame();
-    }, 800);
-  }
-
-  function cancelLP() {
-    clearTimeout(longPressTimer);
-    document.getElementById('flow-btn').classList.remove('long-pressing');
-  }
-
-  btn.addEventListener('touchstart', startLP, { passive: true });
-  btn.addEventListener('touchend',   cancelLP, { passive: true });
-  btn.addEventListener('touchcancel',cancelLP, { passive: true });
-  // Also support mouse for desktop testing
-  btn.addEventListener('mousedown',  startLP);
-  btn.addEventListener('mouseup',    cancelLP);
-  btn.addEventListener('mouseleave', cancelLP);
+  const start = () => { btn.classList.add('long-pressing'); lpTimer = setTimeout(() => { btn.classList.remove('long-pressing'); confirmNewGame(); }, 800); };
+  const cancel = () => { clearTimeout(lpTimer); btn.classList.remove('long-pressing'); };
+  btn.addEventListener('touchstart', start, { passive: true });
+  btn.addEventListener('touchend', cancel, { passive: true });
+  btn.addEventListener('touchcancel', cancel, { passive: true });
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', cancel);
+  btn.addEventListener('mouseleave', cancel);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW GAME
-// ─────────────────────────────────────────────────────────────────────────────
 function confirmNewGame() {
-  showConfirm(
-    '⊕ New Game',
-    'Clear all match data and start fresh? (Stats & CSV of this game are still in localStorage until overwritten.)',
-    doNewGame,
-    false
-  );
+  showConfirm('⊕ New Game', 'Clear all match data and start fresh?', doNewGame, false);
 }
-
 function doNewGame() {
   eventLog = [];
-  state = {
-    gameFlow: 'pre',
-    firstHalfStart: null, firstHalfEnd: null, firstHalfPausedMs: 0,
-    secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0,
-    pausedAt: null,
-  };
+  state = { gameFlow: 'pre', firstHalfStart: null, firstHalfEnd: null, firstHalfPausedMs: 0, secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0, pausedAt: null };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
   saveState();
   document.getElementById('game-over-banner').classList.remove('visible');
-  refreshAll();
-  showToast('New game ready — tap ▶ Start Game');
+  refreshAll(); showToast('New game ready — tap ▶ Start Game');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIRM END GAME
-// ─────────────────────────────────────────────────────────────────────────────
 function confirmEndGame() {
-  showConfirm(
-    '⏹ End Game',
-    'Mark the match as finished? Stats & CSV will still be available.',
-    doEndGame,
-    true
-  );
+  showConfirm('⏹ End Game', 'Mark match as finished? Stats & CSV still available.', doEndGame, true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -818,36 +701,21 @@ function showConfirm(title, msg, action, isPositive) {
   pendingAction = action;
   document.getElementById('confirm-overlay').classList.add('visible');
 }
-function confirmAction() {
-  closeConfirm();
-  if (pendingAction) { pendingAction(); pendingAction = null; }
-}
-function closeConfirm() {
-  document.getElementById('confirm-overlay').classList.remove('visible');
-}
+function confirmAction() { closeConfirm(); if (pendingAction) { pendingAction(); pendingAction = null; } }
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('visible'); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EVENT LOGGING
 // ─────────────────────────────────────────────────────────────────────────────
 function logEvent(btn, evt) {
-  if (state.pausedAt !== null) {
-    showToast('Game is paused — tap ▶ Resume first');
-    return;
-  }
-  if (state.gameFlow === 'half_time') {
-    showToast('Half Time — tap ▶ 2nd Half to continue');
-    return;
-  }
-  if (state.gameFlow === 'ended') {
-    showToast('Game has ended');
-    return;
-  }
-  // Auto-start if analyst taps KPI before pressing Start
-  if (state.gameFlow === 'pre') doStartGame();
+  if (state.pausedAt !== null)        { showToast('Game is paused — tap ▶ Resume first'); return; }
+  if (state.gameFlow === 'half_time') { showToast('Half Time — tap ▶ 2nd Half to continue'); return; }
+  if (state.gameFlow === 'ended')     { showToast('Game has ended'); return; }
+  if (state.gameFlow === 'pre')       doStartGame();
 
-  const kpi     = btn.dataset.kpi;
-  const now     = Date.now();
-  const secs    = getMatchSeconds(now);
+  const kpi = btn.dataset.kpi;
+  const now = Date.now();
+  const secs = getMatchSeconds(now);
   const quarter = getQuarterFromSeconds(secs);
   const m = Math.floor(secs / 60).toString().padStart(2,'0');
   const s = (secs % 60).toString().padStart(2,'0');
@@ -855,41 +723,74 @@ function logEvent(btn, evt) {
   eventLog.push({ kpi, ts: now, quarter, time: `Q${quarter} ${m}:${s}` });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
 
-  triggerFlash(btn);
-  triggerRipple(btn, evt);
-  triggerScale(btn);
-  refreshCounts();
-  refreshScoreboard();
+  triggerFlash(btn); triggerRipple(btn, evt); triggerScale(btn);
+  refreshCounts(); refreshScoreboard(); refreshQBars();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UNDO
-// ─────────────────────────────────────────────────────────────────────────────
 function undoLast() {
   if (eventLog.length === 0) { showToast('Nothing to undo'); return; }
   const last = eventLog.pop();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
-  showToast(`↩ Undid: ${last.kpi}`);
-  refreshCounts();
-  refreshScoreboard();
+  showToast(`↩ Undid: ${last.kpi} @ ${last.time}`);
+  refreshCounts(); refreshScoreboard(); refreshQBars();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLOCK DISPLAY
+// CLOCK
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// CLOCK ADJUST  ±30 seconds
+// Shifts the relevant half's start time so the running clock moves forward or
+// back by the requested amount. Works while live OR paused.
+// ─────────────────────────────────────────────────────────────────────────────
+function adjustClock(deltaSecs) {
+  const active = state.gameFlow === 'first_half' || state.gameFlow === 'second_half';
+  const paused = state.gameFlow === 'half_time';  // half_time clock is frozen at firstHalfEnd
+  if (!active && !paused) return;
+
+  const deltaMs = deltaSecs * 1000;
+
+  if (state.gameFlow === 'first_half') {
+    // Shift start earlier (deltaMs<0) to add time, or later (deltaMs>0) to subtract
+    state.firstHalfStart -= deltaMs;
+    // Don't let clock go below 0
+    const secs = getMatchSeconds();
+    if (secs < 0) state.firstHalfStart += deltaMs; // revert if it would go negative
+
+  } else if (state.gameFlow === 'half_time') {
+    // Adjust the frozen first-half end point
+    state.firstHalfEnd = (state.firstHalfEnd || Date.now()) + deltaMs;
+    const secs = getMatchSeconds();
+    if (secs < 0) state.firstHalfEnd -= deltaMs;
+
+  } else if (state.gameFlow === 'second_half') {
+    state.secondHalfStart -= deltaMs;
+    const secs = getMatchSeconds();
+    if (secs < H_START) state.secondHalfStart += deltaMs;
+  }
+
+  saveState();
+  refreshClockDisplay();
+  refreshQBars();
+  const dir = deltaSecs > 0 ? `+${deltaSecs}s` : `${deltaSecs}s`;
+  showToast(`Clock adjusted ${dir} → ${document.getElementById('match-clock').textContent}`);
+}
+
 function refreshClockDisplay() {
   const clockEl  = document.getElementById('match-clock');
   const statusEl = document.getElementById('game-status');
   const qlEl     = document.getElementById('quarter-label');
   const isPaused = state.pausedAt !== null;
 
+  // Enable/disable adj buttons
+  const canAdj = state.gameFlow === 'first_half' || state.gameFlow === 'second_half' || state.gameFlow === 'half_time';
+  document.getElementById('clock-minus').classList.toggle('disabled', !canAdj);
+  document.getElementById('clock-plus').classList.toggle('disabled', !canAdj);
+
   if (state.gameFlow === 'pre') {
-    clockEl.textContent = '00:00';
-    clockEl.classList.remove('paused');
-    statusEl.textContent = 'Long-press Flow to reset';
-    qlEl.textContent = 'Pre-Match';
-    updateQtrPills(0);
-    return;
+    clockEl.textContent = '00:00'; clockEl.classList.remove('paused');
+    statusEl.textContent = 'Long-press Flow to reset'; qlEl.textContent = 'Pre-Match';
+    updateQtrPills(0); return;
   }
 
   const secs = getMatchSeconds();
@@ -898,44 +799,61 @@ function refreshClockDisplay() {
   clockEl.textContent = `${m}:${s}`;
 
   if (state.gameFlow === 'half_time') {
-    clockEl.classList.add('paused');
-    statusEl.textContent = 'Half Time';
-    qlEl.textContent = 'Half Time';
-    updateQtrPills(secs);
-    return;
+    clockEl.classList.add('paused'); statusEl.textContent = 'Half Time'; qlEl.textContent = 'Half Time';
+    updateQtrPills(secs); return;
   }
-
   if (state.gameFlow === 'ended') {
-    clockEl.classList.remove('paused');
-    statusEl.textContent = 'Full Time';
-    qlEl.textContent = 'Full Time';
-    updateQtrPills(secs);
-    return;
+    clockEl.classList.remove('paused'); statusEl.textContent = 'Full Time'; qlEl.textContent = 'Full Time';
+    updateQtrPills(secs); return;
   }
 
-  // Active half (possibly paused mid-half)
-  if (isPaused) {
-    clockEl.classList.add('paused');
-    statusEl.textContent = 'Paused';
-  } else {
-    clockEl.classList.remove('paused');
-    statusEl.textContent = 'Live';
-  }
-  const q = getQuarterFromSeconds(secs);
-  qlEl.textContent = `Quarter ${q}`;
+  if (isPaused) { clockEl.classList.add('paused'); statusEl.textContent = 'Paused'; }
+  else          { clockEl.classList.remove('paused'); statusEl.textContent = 'Live'; }
+  qlEl.textContent = `Quarter ${getQuarterFromSeconds(secs)}`;
   updateQtrPills(secs);
 }
 
 function updateQtrPills(secs) {
-  const isPre  = state.gameFlow === 'pre';
-  const activeQ = isPre ? 0 : getQuarterFromSeconds(secs);
+  const isPre = state.gameFlow === 'pre';
+  const curQ  = isPre ? 0 : getQuarterFromSeconds(secs);
 
-  document.querySelectorAll('.qtr-pill').forEach(el => {
-    const q = parseInt(el.dataset.q);
-    el.classList.remove('active','done');
-    if (isPre) return;
-    if (q === activeQ)    el.classList.add('active');
-    else if (q < activeQ) el.classList.add('done');
+  for (let q = 1; q <= 4; q++) {
+    const pill = document.querySelector(`.qtr-pill[data-q="${q}"]`);
+    const scoreEl = document.getElementById(`q${q}-score`);
+    pill.classList.toggle('active', q === curQ && !isPre);
+    pill.classList.toggle('done',   q < curQ);
+
+    // Cumulative score up to this quarter
+    const gf = eventLog.filter(e => e.kpi === 'Goal – Us' && e.quarter === q).length;
+    const pf = eventLog.filter(e => (e.kpi === 'Point – Play (Us)' || e.kpi === 'Point – Free (Us)') && e.quarter === q).length;
+    const ga = eventLog.filter(e => e.kpi === 'Goal – Them' && e.quarter === q).length;
+    const pa = eventLog.filter(e => e.kpi === 'Point – Them' && e.quarter === q).length;
+    const u = gf*3+pf, t = ga*3+pa;
+    scoreEl.textContent = (u > 0 || t > 0) ? `${u}-${t}` : '';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q-BARS on each KPI button
+// ─────────────────────────────────────────────────────────────────────────────
+function refreshQBars() {
+  const counts = {};
+  KPI_LIST.forEach(k => { counts[k] = {1:0,2:0,3:0,4:0}; });
+  eventLog.forEach(e => { if (counts[e.kpi]) counts[e.kpi][e.quarter]++; });
+
+  const curQ = state.gameFlow === 'pre' ? 0 : getQuarterFromSeconds(getMatchSeconds());
+
+  document.querySelectorAll('.kpi-btn').forEach(btn => {
+    const kpi = btn.dataset.kpi;
+    const c = counts[kpi];
+    const maxVal = Math.max(c[1], c[2], c[3], c[4], 1);
+    btn.querySelectorAll('.qbar-seg').forEach(seg => {
+      const q = parseInt(seg.dataset.q);
+      const hasData = c[q] > 0;
+      seg.classList.toggle('lit', hasData);
+      seg.classList.toggle('cur', q === curQ);
+      seg.style.opacity = hasData ? String(0.35 + (c[q] / maxVal) * 0.65) : '';
+    });
   });
 }
 
@@ -943,11 +861,8 @@ function updateQtrPills(secs) {
 // REFRESH ALL
 // ─────────────────────────────────────────────────────────────────────────────
 function refreshAll() {
-  refreshCounts();
-  refreshScoreboard();
-  refreshFlowBtn();
-  refreshPauseBtn();
-  refreshClockDisplay();
+  refreshCounts(); refreshScoreboard(); refreshFlowBtn(); refreshPauseBtn();
+  refreshClockDisplay(); refreshQBars();
 }
 
 function refreshFlowBtn() {
@@ -960,31 +875,17 @@ function refreshFlowBtn() {
     ended:       { label: '— Full Time',    bg: 'rgba(107,122,153,0.10)', bc: 'rgba(107,122,153,0.3)', c: 'var(--text-dim)' },
   };
   const s = map[state.gameFlow] || map.pre;
-  btn.textContent       = s.label;
-  btn.style.background  = s.bg;
-  btn.style.borderColor = s.bc;
-  btn.style.color       = s.c;
+  btn.textContent = s.label; btn.style.background = s.bg; btn.style.borderColor = s.bc; btn.style.color = s.c;
 }
 
 function refreshPauseBtn() {
   const btn = document.getElementById('pause-btn');
   const canPause = state.gameFlow === 'first_half' || state.gameFlow === 'second_half';
-
-  if (!canPause) {
-    btn.className = 'action-btn disabled-btn';
-    btn.textContent = '⏸ Pause';
-    return;
-  }
-
-  if (state.pausedAt !== null) {
-    // Currently paused — show Resume
-    btn.className = 'action-btn resuming';
-    btn.textContent = '▶ Resume';
-  } else {
+  if (!canPause) { btn.className = 'action-btn disabled-btn'; btn.textContent = '⏸ Pause'; return; }
+  if (state.pausedAt !== null) { btn.className = 'action-btn resuming'; btn.textContent = '▶ Resume'; }
+  else {
     btn.className = 'action-btn';
-    btn.style.background  = 'rgba(255,171,64,0.12)';
-    btn.style.borderColor = 'rgba(255,171,64,0.4)';
-    btn.style.color       = 'var(--amber)';
+    btn.style.background = 'rgba(255,171,64,0.12)'; btn.style.borderColor = 'rgba(255,171,64,0.4)'; btn.style.color = 'var(--amber)';
     btn.textContent = '⏸ Pause';
   }
 }
@@ -999,32 +900,30 @@ function refreshCounts() {
 }
 
 function refreshScoreboard() {
-  const gf = eventLog.filter(e => e.kpi === 'Goal (Us)').length;
-  const pf = eventLog.filter(e => e.kpi === 'Point (Play)' || e.kpi === 'Point (Free/65)').length;
-  const ga = eventLog.filter(e => e.kpi === 'Goal Against').length;
-  const pa = eventLog.filter(e => e.kpi === 'Point Against').length;
+  const gf = eventLog.filter(e => e.kpi === 'Goal – Us').length;
+  const pf = eventLog.filter(e => e.kpi === 'Point – Play (Us)' || e.kpi === 'Point – Free (Us)').length;
+  const ga = eventLog.filter(e => e.kpi === 'Goal – Them').length;
+  const pa = eventLog.filter(e => e.kpi === 'Point – Them').length;
 
-  const usEl   = document.getElementById('score-us');
+  const usEl = document.getElementById('score-us');
+  const usPts = document.getElementById('score-us-pts');
   const themEl = document.getElementById('score-them');
-  const newUs   = `${gf}-${pf.toString().padStart(2,'0')}`;
+  const themPts = document.getElementById('score-them-pts');
+
+  const newUs = `${gf}-${pf.toString().padStart(2,'0')}`;
   const newThem = `${ga}-${pa.toString().padStart(2,'0')}`;
-
-  if (usEl.textContent !== newUs)     { usEl.textContent = newUs;     flashScore(usEl); }
-  if (themEl.textContent !== newThem) { themEl.textContent = newThem; flashScore(themEl); }
+  if (usEl.textContent !== newUs)     { usEl.textContent = newUs;     flashEl(usEl); }
+  if (themEl.textContent !== newThem) { themEl.textContent = newThem; flashEl(themEl); }
+  usPts.textContent   = `(${gf*3+pf})`;
+  themPts.textContent = `(${ga*3+pa})`;
 }
 
-function flashScore(el) {
-  el.classList.add('flash-score');
-  setTimeout(() => el.classList.remove('flash-score'), 400);
-}
+function flashEl(el) { el.classList.add('flash-score'); setTimeout(() => el.classList.remove('flash-score'), 400); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANIMATIONS
 // ─────────────────────────────────────────────────────────────────────────────
-function triggerFlash(btn) {
-  btn.classList.add('flashing');
-  setTimeout(() => btn.classList.remove('flashing'), 200);
-}
+function triggerFlash(btn) { btn.classList.add('flashing'); setTimeout(() => btn.classList.remove('flashing'), 200); }
 
 function triggerRipple(btn, evt) {
   const rect = btn.getBoundingClientRect();
@@ -1046,167 +945,113 @@ function triggerScale(btn) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATS DISPLAY
+// STATS MODAL
 // ─────────────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+}
+
 function showDisplay() {
-  // Build per-quarter counts for every raw KPI
   const raw = {};
   KPI_LIST.forEach(k => { raw[k] = {1:0,2:0,3:0,4:0}; });
   eventLog.forEach(e => { if (raw[e.kpi]) raw[e.kpi][e.quarter]++; });
-
-  // Helper: get count for a kpi in a quarter
-  const c = (kpi, q) => (raw[kpi] ? raw[kpi][q] : 0);
-
-  // Helper: format percentage, returns '--' when denominator is 0
+  const c   = (kpi, q) => (raw[kpi] ? raw[kpi][q] : 0);
   const pct = (num, den) => den === 0 ? '--' : Math.round((num / den) * 100) + '%';
 
-  // Determine the highest quarter that has been played (at least started)
   const maxPlayedQ = (() => {
-    if (state.gameFlow === 'pre') return 0;
-    if (state.gameFlow === 'ended') return 4;
+    if (state.gameFlow === 'pre')      return 0;
+    if (state.gameFlow === 'ended')    return 4;
     if (state.gameFlow === 'half_time') return 2;
     return getQuarterFromSeconds(getMatchSeconds());
   })();
 
-  // Helper: build a <td> — colour any quarter that has been played
   function cell(display, isBad, q, isTotal = false) {
-    let cls = isTotal ? 'total-col' : '';
-    if (!isTotal && q <= maxPlayedQ) cls = isBad ? 'bad' : 'good';
+    let cls = isTotal ? 'total-col' : (q <= maxPlayedQ ? (isBad ? 'bad' : 'good') : '');
     return `<td class="${cls}">${display}</td>`;
   }
 
-  // Define 10 rows
+  // KPI Dashboard rows
   const rows = [
-    {
-      label: 'Our Scores',
-      target: '5',
-      targetVal: 5,
-      // counts: sum of Point(Play) + Point(Free/65) + Goal(Us) — each goal = 1 score
-      qval: q => c('Point (Play)',q) + c('Point (Free/65)',q) + c('Goal (Us)',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Point (Play)',q) + c('Point (Free/65)',q) + c('Goal (Us)',q), 0),
-      bad: (v) => v < 5,  // red if below target
-    },
-    {
-      label: 'Their Scores',
-      target: '4',
-      targetVal: 4,
-      qval: q => c('Point Against',q) + c('Goal Against',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Point Against',q) + c('Goal Against',q), 0),
-      bad: (v) => v > 4,  // red if above target
-    },
-    {
-      label: 'Shots from Play Efficiency',
-      target: '70%',
-      isPct: true,
-      qval: q => { const n = c('Point (Play)',q); const d = n + c('Shot Wide (Play)',q); return {n,d}; },
-      bad: (n,d) => d > 0 && (n/d) < 0.70,
-    },
-    {
-      label: 'Shots from Spot Efficiency',
-      target: '80%',
-      isPct: true,
-      qval: q => { const n = c('Point (Free/65)',q); const d = n + c('Shot Wide (Free/65)',q); return {n,d}; },
-      bad: (n,d) => d > 0 && (n/d) < 0.80,
-    },
-    {
-      label: 'Total Shot Efficiency',
-      target: '75%',
-      isPct: true,
-      qval: q => {
-        const n = c('Point (Play)',q) + c('Point (Free/65)',q);
-        const d = n + c('Shot Wide (Play)',q) + c('Shot Wide (Free/65)',q);
-        return {n,d};
-      },
-      bad: (n,d) => d > 0 && (n/d) < 0.75,
-    },
-    {
-      label: 'Forced Turnovers',
-      target: '2',
-      qval: q => c('Forced Turnovers',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Forced Turnovers',q), 0),
-      bad: (v) => v < 2,
-    },
-    {
-      label: 'Conceded Turnovers',
-      target: '2',
-      qval: q => c('Turnover Conceded',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Turnover Conceded',q), 0),
-      bad: (v) => v > 2,  // red if conceding too many
-    },
-    {
-      label: 'Long Puckout Retention',
-      target: '70%',
-      isPct: true,
-      qval: q => { const n = c('Pucks Won Us',q); const d = n + c('Pucks Lost Us',q); return {n,d}; },
-      bad: (n,d) => d > 0 && (n/d) < 0.70,
-    },
-    {
-      label: 'Long Puckout Opp Success',
-      target: '50%',
-      isPct: true,
-      qval: q => { const n = c('Pucks Won Them',q); const d = n + c('Pucks Lost Them',q); return {n,d}; },
-      bad: (n,d) => d > 0 && (n/d) < 0.50,
-    },
-    {
-      label: 'Breaking Ball Success',
-      target: '51%',
-      isPct: true,
-      qval: q => { const n = c('Contested Won',q); const d = n + c('Contested Lost',q); return {n,d}; },
-      bad: (n,d) => d > 0 && (n/d) < 0.51,
-    },
-    {
-      label: 'Run Thru 65',
-      target: '7',
+    { label: 'Our Scores',             target: '≥5/qtr',
+      qval: q => c('Point – Play (Us)',q) + c('Point – Free (Us)',q) + c('Goal – Us',q),
+      total: () => [1,2,3,4].reduce((s,q) => s + c('Point – Play (Us)',q) + c('Point – Free (Us)',q) + c('Goal – Us',q), 0),
+      bad: v => v < 5 },
+    { label: 'Their Scores',           target: '≤4/qtr',
+      qval: q => c('Point – Them',q) + c('Goal – Them',q),
+      total: () => [1,2,3,4].reduce((s,q) => s + c('Point – Them',q) + c('Goal – Them',q), 0),
+      bad: v => v > 4 },
+    { label: 'Shot Efficiency (Play)', target: '≥70%',  isPct: true,
+      qval: q => ({ n: c('Point – Play (Us)',q), d: c('Point – Play (Us)',q) + c('Shot Miss – Play',q) }),
+      bad: (n,d) => d > 0 && n/d < 0.70 },
+    { label: 'Shot Efficiency (Free)', target: '≥80%',  isPct: true,
+      qval: q => ({ n: c('Point – Free (Us)',q), d: c('Point – Free (Us)',q) + c('Shot Miss – Free',q) }),
+      bad: (n,d) => d > 0 && n/d < 0.80 },
+    { label: 'Total Shot Efficiency',  target: '≥75%',  isPct: true,
+      qval: q => { const n = c('Point – Play (Us)',q)+c('Point – Free (Us)',q); const d = n+c('Shot Miss – Play',q)+c('Shot Miss – Free',q); return {n,d}; },
+      bad: (n,d) => d > 0 && n/d < 0.75 },
+    { label: 'Forced Turnovers',       target: '≥2/qtr',
+      qval: q => c('Turnover – Forced',q),
+      total: () => [1,2,3,4].reduce((s,q) => s + c('Turnover – Forced',q), 0),
+      bad: v => v < 2 },
+    { label: 'Puckout Retention (Us)', target: '≥70%',  isPct: true,
+      qval: q => ({ n: c('PO Win – Us',q), d: c('PO Win – Us',q)+c('PO Lost – Us',q) }),
+      bad: (n,d) => d > 0 && n/d < 0.70 },
+    { label: 'Puckout Success (Opp)',  target: '≤50%',  isPct: true,
+      qval: q => ({ n: c('PO Win – Them',q), d: c('PO Win – Them',q)+c('PO Lost – Them',q) }),
+      bad: (n,d) => d > 0 && n/d > 0.50 },
+    { label: 'Breaking Ball Success',  target: '≥51%',  isPct: true,
+      qval: q => ({ n: c('Contest Win',q), d: c('Contest Win',q)+c('Contest Lost',q) }),
+      bad: (n,d) => d > 0 && n/d < 0.51 },
+    { label: 'UnContested Loss Ratio', target: '≤49%',  isPct: true,
+      qval: q => ({ n: c('Turnover – Us',q), d: c('Turnover – Us',q)+c('Turnover – Them',q) }),
+      bad: (n,d) => d > 0 && n/d > 0.49 },
+    { label: 'Run thru 65',            target: '≥7 total',
       qval: q => c('Run thru 65',q),
-      total: () => [1,2,3,4].reduce((s,q)=> s + c('Run thru 65',q), 0),
-      bad: (v) => v < 7,
-    },
+      total: () => [1,2,3,4].reduce((s,q) => s + c('Run thru 65',q), 0),
+      bad: v => v < 7 },
   ];
 
   const tbody = document.getElementById('stats-tbody');
   tbody.innerHTML = '';
-
   rows.forEach(row => {
     const tr = document.createElement('tr');
-
-    // KPI label cell
-    let html = `<td>${row.label}</td>`;
-    // Target cell
-    html += `<td class="target-col">${row.target}</td>`;
-
+    let html = `<td>${row.label}</td><td class="target-col">${row.target}</td>`;
     if (row.isPct) {
-      // Percentage rows
-      let totalN = 0, totalD = 0;
-      [1,2,3,4].forEach(q => {
-        const {n,d} = row.qval(q);
-        totalN += n; totalD += d;
-        const display = pct(n,d);
-        const isBad = row.bad(n,d);
-        html += cell(display, isBad, q);
-      });
-      html += `<td class="total-col">${pct(totalN,totalD)}</td>`;
+      let tN = 0, tD = 0;
+      [1,2,3,4].forEach(q => { const {n,d} = row.qval(q); tN+=n; tD+=d; html += cell(pct(n,d), row.bad(n,d), q); });
+      html += `<td class="total-col">${pct(tN,tD)}</td>`;
     } else {
-      // Count rows
       let total = 0;
-      [1,2,3,4].forEach(q => {
-        const v = row.qval(q);
-        total += v;
-        html += cell(v, row.bad(v), q);
-      });
-      const totalDisplay = row.total ? row.total() : total;
-      html += `<td class="total-col">${totalDisplay}</td>`;
+      [1,2,3,4].forEach(q => { const v = row.qval(q); total+=v; html += cell(v, row.bad(v), q); });
+      html += `<td class="total-col">${row.total ? row.total() : total}</td>`;
     }
-
     tr.innerHTML = html;
     tbody.appendChild(tr);
   });
 
-  const gf = eventLog.filter(e=>e.kpi==='Goal (Us)').length;
-  const pf = eventLog.filter(e=>e.kpi==='Point (Play)'||e.kpi==='Point (Free/65)').length;
-  const ga = eventLog.filter(e=>e.kpi==='Goal Against').length;
-  const pa = eventLog.filter(e=>e.kpi==='Point Against').length;
+  // Raw Counts tab
+  const rawTbody = document.getElementById('raw-tbody');
+  rawTbody.innerHTML = '';
+  KPI_GROUPS.forEach(group => {
+    const htr = document.createElement('tr');
+    htr.className = 'cat-header';
+    htr.innerHTML = `<td colspan="6">${group.label}</td>`;
+    rawTbody.appendChild(htr);
+    group.kpis.forEach(kpi => {
+      const total = [1,2,3,4].reduce((s,q) => s+c(kpi,q), 0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${kpi}</td><td>${c(kpi,1)}</td><td>${c(kpi,2)}</td><td>${c(kpi,3)}</td><td>${c(kpi,4)}</td><td class="total-col">${total}</td>`;
+      rawTbody.appendChild(tr);
+    });
+  });
+
+  const gf = eventLog.filter(e=>e.kpi==='Goal – Us').length;
+  const pf = eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
+  const ga = eventLog.filter(e=>e.kpi==='Goal – Them').length;
+  const pa = eventLog.filter(e=>e.kpi==='Point – Them').length;
   document.getElementById('modal-score-summary').textContent =
-    `Us ${gf}-${pf.toString().padStart(2,'0')} (${gf*3+pf})  |  Them ${ga}-${pa.toString().padStart(2,'0')} (${ga*3+pa})`;
+    `Us ${gf}-${pf.toString().padStart(2,'0')} (${gf*3+pf})  vs  Them ${ga}-${pa.toString().padStart(2,'0')} (${ga*3+pa})`;
 
   document.getElementById('modal-overlay').classList.add('visible');
 }
@@ -1217,19 +1062,12 @@ function hideDisplay(evt) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CSV EXPORT  — works at any game state, including after ended.
-// Uses Blob + object URL. Safari on iPad may not auto-download, so we fall
-// back to a visible link overlay the user can tap manually.
+// CSV EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 function exportCSV() {
   if (eventLog.length === 0) { showToast('No events logged yet'); return; }
-
-  // Build CSV string
   const lines = ['Event,Quarter,MatchTime,Timestamp_ms'];
-  eventLog.forEach(e => {
-    lines.push(`"${e.kpi}",${e.quarter},"${e.time}",${e.ts}`);
-  });
-
+  eventLog.forEach(e => lines.push(`"${e.kpi}",${e.quarter},"${e.time}",${e.ts}`));
   lines.push('','KPI Summary','KPI,Qtr1,Qtr2,Qtr3,Qtr4,Total');
   const data = {};
   KPI_LIST.forEach(k => { data[k] = {1:0,2:0,3:0,4:0}; });
@@ -1238,58 +1076,33 @@ function exportCSV() {
     const t = data[k][1]+data[k][2]+data[k][3]+data[k][4];
     lines.push(`"${k}",${data[k][1]},${data[k][2]},${data[k][3]},${data[k][4]},${t}`);
   });
-
-  const csv      = lines.join('\n');
-  const blob     = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url      = URL.createObjectURL(blob);
-  const filename = `gaa_stats_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.csv`;
-
-  // Try the programmatic download approach first
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const fn   = `gaa_stats_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.csv`;
   const a = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  // Safari often ignores the click — show fallback overlay after a short delay
-  // so the user always has a way to get the file
+  a.href = url; a.download = fn;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => {
-    // If the download attribute isn't supported (Safari < 15.4 on iPad)
-    // show the manual tap overlay
-    if (typeof a.download === 'undefined' || /iPad|iPhone/.test(navigator.userAgent)) {
-      showCsvOverlay(url, filename);
-    } else {
-      URL.revokeObjectURL(url);
-      showToast('CSV downloaded ✓');
-    }
+    if (typeof a.download === 'undefined' || /iPad|iPhone/.test(navigator.userAgent)) showCsvOverlay(url, fn);
+    else { URL.revokeObjectURL(url); showToast('CSV downloaded ✓'); }
   }, 300);
 }
 
 let csvBlobUrl = null;
-
-function showCsvOverlay(url, filename) {
+function showCsvOverlay(url, fn) {
   if (csvBlobUrl) URL.revokeObjectURL(csvBlobUrl);
   csvBlobUrl = url;
   const link = document.getElementById('csv-link');
-  link.href     = url;
-  link.download = filename;
-  link.textContent = `📄 ${filename}`;
+  link.href = url; link.download = fn; link.textContent = `📄 ${fn}`;
   document.getElementById('csv-overlay').classList.add('visible');
 }
-
 function closeCsvOverlay() {
   document.getElementById('csv-overlay').classList.remove('visible');
   if (csvBlobUrl) { URL.revokeObjectURL(csvBlobUrl); csvBlobUrl = null; }
   showToast('CSV ready — use Share → Save to Files');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PERSIST
-// ─────────────────────────────────────────────────────────────────────────────
-function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
-}
+function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TOAST
@@ -1297,13 +1110,10 @@ function saveState() {
 let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 init();
 </script>
 </body>
