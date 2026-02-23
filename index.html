@@ -21,7 +21,32 @@
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   html,body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
 
-  #app { display:grid; grid-template-rows:auto auto 1fr auto; height:100vh; padding:6px 8px 5px; gap:5px; }
+  /* ── METADATA SCREEN ─────────────────────────────────────────── */
+  #meta-screen { display:none; position:fixed; inset:0; z-index:500; background:var(--bg); align-items:center; justify-content:center; padding:24px; }
+  #meta-screen.visible { display:flex; }
+  #meta-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 28px 24px; width:100%; max-width:480px; display:flex; flex-direction:column; gap:20px; }
+  #meta-box h2 { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:3px; color:var(--accent); text-align:center; }
+  #meta-box p { font-size:12px; color:var(--text-dim); text-align:center; margin-top:-12px; letter-spacing:0.5px; }
+  .meta-field { display:flex; flex-direction:column; gap:6px; }
+  .meta-field label { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); }
+  .meta-field input { background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:'Inter',sans-serif; font-size:15px; font-weight:600; padding:12px 14px; outline:none; transition:border-color 0.2s; -webkit-user-select:text; user-select:text; }
+  .meta-field input:focus { border-color:var(--accent); }
+  .meta-field input::placeholder { color:var(--text-dim); opacity:0.5; }
+  .meta-field input[readonly] { opacity:0.55; cursor:default; }
+  #meta-start { width:100%; padding:16px; background:linear-gradient(135deg,rgba(0,212,255,0.2),rgba(0,230,118,0.15)); border:1.5px solid var(--accent); border-radius:var(--radius-sm); color:var(--accent); font-family:'Inter',sans-serif; font-size:14px; font-weight:900; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,transform 0.1s; }
+  #meta-start:active { transform:scale(0.97); }
+
+  /* ── MAIN APP ────────────────────────────────────────────────── */
+  #app { display:grid; grid-template-rows:auto auto auto 1fr auto; height:100vh; padding:6px 8px 5px; gap:5px; }
+
+  /* MATCH BANNER */
+  #match-banner { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px 12px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .banner-item { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .banner-lbl { font-size:8px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); }
+  .banner-val { font-size:12px; font-weight:700; color:var(--text); letter-spacing:0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+  .banner-val.accent { color:var(--accent); }
+  #banner-edit { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:6px; border:1px solid rgba(107,122,153,0.3); background:rgba(107,122,153,0.08); color:var(--text-dim); cursor:pointer; flex-shrink:0; transition:border-color 0.15s,color 0.15s; }
+  #banner-edit:active { border-color:var(--accent); color:var(--accent); }
 
   /* SCOREBOARD */
   #scoreboard { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:4px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
@@ -61,7 +86,7 @@
     border-radius:var(--radius); border:1.5px solid var(--border);
     cursor:pointer; display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    gap:0; padding:3px 0 2px;
+    gap:0; padding:4px 6px 16px;
     touch-action:none;
     transition:transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
   }
@@ -76,10 +101,7 @@
   .kpi-btn.cat-grey   { background:linear-gradient(145deg,#141820,#0f1218); border-color:#252e40; }
 
   /* Zone dividers */
-  .kpi-btn:not(.blank)::before {
-    content:''; position:absolute; top:10%; bottom:14%; left:33.33%;
-    width:1px; pointer-events:none; z-index:1;
-  }
+  .kpi-btn:not(.blank)::before { content:''; position:absolute; top:8%; bottom:18%; left:33.33%; width:1px; pointer-events:none; z-index:1; }
   .cat-green::before  { background:rgba(0,230,118,0.12);  box-shadow:calc(33.33% + 0px) 0 0 rgba(0,230,118,0.12); }
   .cat-red::before    { background:rgba(255,61,90,0.12);  box-shadow:calc(33.33% + 0px) 0 0 rgba(255,61,90,0.12); }
   .cat-yellow::before { background:rgba(255,224,130,0.12);box-shadow:calc(33.33% + 0px) 0 0 rgba(255,224,130,0.12); }
@@ -102,9 +124,9 @@
   .cat-blue   .zone-overlay { background:rgba(0,212,255,0.15); }
   .cat-grey   .zone-overlay { background:rgba(138,155,181,0.15); }
 
-  /* Zone label strip */
+  /* Zone label strip — sits at very bottom of button */
   .zone-labels { position:absolute; bottom:3px; left:0; right:0; display:flex; pointer-events:none; z-index:2; }
-  .zone-lbl { flex:1; text-align:center; font-size:8px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; opacity:0.2; transition:opacity 0.12s; }
+  .zone-lbl { flex:1; text-align:center; font-size:9px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; opacity:0.2; transition:opacity 0.12s; }
   .zone-lbl.active { opacity:0.9; }
   .cat-green  .zone-lbl { color:#00e676; }
   .cat-red    .zone-lbl { color:#ff3d5a; }
@@ -125,8 +147,8 @@
   .cat-blue   .loc-badge { background:rgba(0,212,255,0.25);  color:#00d4ff; }
   .cat-grey   .loc-badge { background:rgba(138,155,181,0.25);color:#8a9bb5; }
 
-  .kpi-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.2px; text-align:center; line-height:1.15; color:var(--text); position:relative; z-index:2; margin-top:1px; }
-  .kpi-count { font-family:'Bebas Neue',sans-serif; font-size:30px; line-height:1; position:relative; z-index:2; opacity:0.9; }
+  .kpi-count { font-family:'Bebas Neue',sans-serif; font-size:34px; line-height:1; position:relative; z-index:2; opacity:0.9; }
+  .kpi-label { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.2px; text-align:center; line-height:1.2; color:var(--text); position:relative; z-index:2; margin-top:2px; }
   .cat-green  .kpi-count { color:#00e676; }
   .cat-red    .kpi-count { color:#ff3d5a; }
   .cat-yellow .kpi-count { color:#ffe082; }
@@ -134,17 +156,6 @@
   .cat-purple .kpi-count { color:#b388ff; }
   .cat-blue   .kpi-count { color:#00d4ff; }
   .cat-grey   .kpi-count { color:#8a9bb5; }
-
-  .kpi-qbar { position:relative; z-index:2; display:flex; width:82%; height:4px; margin-top:3px; gap:2px; border-radius:3px; }
-  .qbar-seg { flex:1; height:100%; border-radius:2px; background:rgba(255,255,255,0.07); transition:background 0.25s,opacity 0.25s; }
-  .cat-green  .qbar-seg.lit { background:rgba(0,230,118,0.65); }
-  .cat-red    .qbar-seg.lit { background:rgba(255,61,90,0.65); }
-  .cat-yellow .qbar-seg.lit { background:rgba(255,224,130,0.65); }
-  .cat-orange .qbar-seg.lit { background:rgba(255,171,64,0.65); }
-  .cat-purple .qbar-seg.lit { background:rgba(179,136,255,0.65); }
-  .cat-blue   .qbar-seg.lit { background:rgba(0,212,255,0.65); }
-  .cat-grey   .qbar-seg.lit { background:rgba(138,155,181,0.65); }
-  .qbar-seg.cur { box-shadow:0 0 5px rgba(255,255,255,0.4); }
 
   /* Flash */
   .kpi-btn::after { content:''; position:absolute; inset:0; background:var(--flash); opacity:0; border-radius:inherit; pointer-events:none; transition:opacity 0.05s; z-index:3; }
@@ -184,6 +195,7 @@
   #modal-box { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; width:100%; max-width:860px; max-height:92vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
   #modal-box h2 { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:2px; color:var(--accent); text-align:center; }
   #modal-score-summary { text-align:center; font-size:13px; color:var(--text-dim); font-weight:700; letter-spacing:1px; }
+  #modal-match-info { text-align:center; font-size:11px; color:var(--text-dim); letter-spacing:0.5px; padding:2px 0 4px; border-bottom:1px solid var(--border); }
   #modal-tabs { display:flex; gap:6px; flex-shrink:0; }
   .modal-tab { flex:1; padding:9px 4px; background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; text-align:center; cursor:pointer; transition:all 0.2s; }
   .modal-tab.active { background:var(--accent); border-color:var(--accent); color:#000; }
@@ -221,17 +233,37 @@
     #scoreboard { padding:3px 20px; }
     .score-value { font-size:36px; }
     #match-clock { font-size:30px; }
-    .kpi-count { font-size:32px; }
-    .kpi-label { font-size:11px; }
+    .kpi-count { font-size:36px; }
+    .kpi-label { font-size:13px; }
     .action-btn { padding:8px 4px; }
   }
 </style>
 </head>
 <body>
 
+<div id="meta-screen">
+  <div id="meta-box">
+    <h2>⬢ Match Setup</h2>
+    <p>Fill in the details before the match begins</p>
+    <div class="meta-field"><label>Opposition</label><input type="text" id="meta-opposition" placeholder="e.g. Kilkenny" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+    <div class="meta-field"><label>Competition / League</label><input type="text" id="meta-competition" placeholder="e.g. Leinster SHC" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+    <div class="meta-field"><label>Venue</label><input type="text" id="meta-venue" placeholder="e.g. Croke Park" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+    <div class="meta-field"><label>Date</label><input type="text" id="meta-date" readonly></div>
+    <button id="meta-start" onclick="submitMeta()">Enter App →</button>
+  </div>
+</div>
+
 <div id="game-over-banner">⬛ Full Time ⬛</div>
 
 <div id="app">
+  <div id="match-banner">
+    <div class="banner-item"><span class="banner-lbl">Opposition</span><span class="banner-val accent" id="bn-opposition">—</span></div>
+    <div class="banner-item"><span class="banner-lbl">Competition</span><span class="banner-val" id="bn-competition">—</span></div>
+    <div class="banner-item"><span class="banner-lbl">Venue</span><span class="banner-val" id="bn-venue">—</span></div>
+    <div class="banner-item"><span class="banner-lbl">Date</span><span class="banner-val" id="bn-date">—</span></div>
+    <button id="banner-edit" onclick="editMeta()">✎ Edit</button>
+  </div>
+
   <div id="scoreboard">
     <div class="score-team">
       <div class="score-label">Us</div>
@@ -265,41 +297,33 @@
     <div class="qtr-pill" data-q="4">Q4<span class="qtr-score" id="q4-score"></span></div>
   </div>
 
+  <!-- KPI GRID 5×5 — no qbar spans -->
   <div id="kpi-grid">
-    <!-- Row 1: Scoring Us -->
-    <button class="kpi-btn cat-green"  data-kpi="Point – Play (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Miss – Play (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-green"  data-kpi="Point – Free (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Miss – Free (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-green"  data-kpi="Goal – Us">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-
-    <!-- Row 2: Scoring Them -->
-    <button class="kpi-btn cat-red"    data-kpi="Point – Play (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-orange" data-kpi="Miss – Play (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-red"    data-kpi="Point – Free (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-orange" data-kpi="Miss – Free (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-red"    data-kpi="Goal – Them">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-
-    <!-- Row 3: Puckouts -->
-    <button class="kpi-btn cat-purple" data-kpi="Our PO – We Win">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-red"    data-kpi="Our PO – We Lose">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Lose</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-purple" data-kpi="Their PO – We Win"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-red"    data-kpi="Their PO – We Lose"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Lose</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-green"  data-kpi="Point – Play (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Us)</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Miss – Play (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Us)</span>   <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-green"  data-kpi="Point – Free (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Us)</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Miss – Free (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Us)</span>   <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-green"  data-kpi="Goal – Us">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Us)</span>          <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Point – Play (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Them)</span><div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-orange" data-kpi="Miss – Play (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Them)</span> <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Point – Free (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Them)</span><div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-orange" data-kpi="Miss – Free (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Them)</span> <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Goal – Them">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Them)</span>        <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-purple" data-kpi="Our PO – We Win">    <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Win</span>    <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Our PO – We Lose">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Lose</span>   <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-purple" data-kpi="Their PO – We Win">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Win</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Their PO – We Lose"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Lose</span> <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
     <button class="kpi-btn blank" aria-hidden="true"></button>
-
-    <!-- Row 4: Turnovers & Contests -->
-    <button class="kpi-btn cat-blue"   data-kpi="T/O Forced (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-grey"   data-kpi="T/O Forced (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-blue"   data-kpi="Contested Win">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-grey"   data-kpi="Contested Loss">    <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Loss</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Run thru 65">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-
-    <!-- Row 5: Frees, Unforced, Cards -->
-    <button class="kpi-btn cat-blue"   data-kpi="Unforced Win">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-grey"   data-kpi="Unforced Loss">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Loss</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-purple" data-kpi="Free Win">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-grey"   data-kpi="Free Lost">         <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Lost</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-red"    data-kpi="Card for Us">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Card for Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-blue"   data-kpi="T/O Forced (Us)">    <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Us)</span>    <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="T/O Forced (Them)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Them)</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-blue"   data-kpi="Contested Win">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Win</span>      <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Contested Loss">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Loss</span>     <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Run thru 65">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span>        <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-blue"   data-kpi="Unforced Win">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Win</span>       <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Unforced Loss">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Loss</span>      <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-purple" data-kpi="Free Win">           <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Win</span>           <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Free Lost">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Lost</span>          <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Card for Us">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Card for Us</span>        <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
   </div>
 
   <div id="bottom-row">
@@ -311,7 +335,6 @@
   </div>
 </div>
 
-<!-- CONFIRM -->
 <div id="confirm-overlay">
   <div id="confirm-box">
     <h3 id="confirm-title">Are you sure?</h3>
@@ -323,10 +346,10 @@
   </div>
 </div>
 
-<!-- STATS MODAL -->
 <div id="modal-overlay" onclick="hideDisplay(event)">
   <div id="modal-box">
     <h2>Match Statistics</h2>
+    <div id="modal-match-info"></div>
     <div id="modal-score-summary"></div>
     <div id="modal-tabs">
       <div class="modal-tab active" data-tab="kpi" onclick="switchTab('kpi')">📈 KPI Dashboard</div>
@@ -348,7 +371,6 @@
   </div>
 </div>
 
-<!-- CSV FALLBACK -->
 <div id="csv-overlay">
   <div id="csv-box">
     <h3>📥 Export CSV</h3>
@@ -361,216 +383,144 @@
 <div id="toast"></div>
 
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const KPI_LIST = [
+const KPI_LIST=[
   'Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us',
   'Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them',
   'Our PO – We Win','Our PO – We Lose','Their PO – We Win','Their PO – We Lose',
   'T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Run thru 65',
   'Unforced Win','Unforced Loss','Free Win','Free Lost','Card for Us'
 ];
-
-const KPI_GROUPS = [
-  { label:'⬢ Scoring — Us',         kpis:['Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us'] },
-  { label:'⬢ Scoring — Them',       kpis:['Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them'] },
-  { label:'⬢ Puckouts — Our',       kpis:['Our PO – We Win','Our PO – We Lose'] },
-  { label:'⬢ Puckouts — Their',     kpis:['Their PO – We Win','Their PO – We Lose'] },
-  { label:'⬢ Turnovers & Contests', kpis:['T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Unforced Win','Unforced Loss'] },
-  { label:'⬢ Frees & Discipline',   kpis:['Free Win','Free Lost','Run thru 65','Card for Us'] },
+const KPI_GROUPS=[
+  {label:'⬢ Scoring — Us',         kpis:['Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us']},
+  {label:'⬢ Scoring — Them',       kpis:['Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them']},
+  {label:'⬢ Puckouts — Our',       kpis:['Our PO – We Win','Our PO – We Lose']},
+  {label:'⬢ Puckouts — Their',     kpis:['Their PO – We Win','Their PO – We Lose']},
+  {label:'⬢ Turnovers & Contests', kpis:['T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Unforced Win','Unforced Loss']},
+  {label:'⬢ Frees & Discipline',   kpis:['Free Win','Free Lost','Run thru 65','Card for Us']},
 ];
+const STORAGE_KEY='gaa_event_log_v11',STATE_KEY='gaa_game_state_v11',META_KEY='gaa_match_meta_v11';
+const Q1_Q2=15*60,H_START=30*60,Q3_Q4=45*60;
 
-const STORAGE_KEY = 'gaa_event_log_v10';
-const STATE_KEY   = 'gaa_game_state_v10';
-const Q1_Q2=15*60, H_START=30*60, Q3_Q4=45*60;
+let eventLog=[],pendingAction=null,activeTouch=null;
+let state={gameFlow:'pre',firstHalfStart:null,firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null};
+let meta={opposition:'',competition:'',venue:'',date:''};
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let eventLog = [];
-let state = { gameFlow:'pre', firstHalfStart:null, firstHalfEnd:null, firstHalfPausedMs:0, secondHalfStart:null, secondHalfEnd:null, secondHalfPausedMs:0, pausedAt:null };
-let pendingAction = null;
-
-// ─── TOUCH STATE (per-button) ────────────────────────────────────────────────
-// We track touch on the grid container and route to the correct button
-let activeTouch = null; // { btn, startX, startY, identifier }
-
-// ─── INIT ────────────────────────────────────────────────────────────────────
-function init() {
-  const sl = localStorage.getItem(STORAGE_KEY), ss = localStorage.getItem(STATE_KEY);
-  if (sl) eventLog = JSON.parse(sl);
-  if (ss) state    = JSON.parse(ss);
-  setupGridTouch();
-  refreshAll();
-  setInterval(refreshClockDisplay, 500);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  setupFlowLongPress();
+function init(){
+  const sl=localStorage.getItem(STORAGE_KEY),ss=localStorage.getItem(STATE_KEY),sm=localStorage.getItem(META_KEY);
+  if(sl)eventLog=JSON.parse(sl);
+  if(ss)state=JSON.parse(ss);
+  if(sm)meta=JSON.parse(sm);
+  document.getElementById('meta-date').value=fmtDate(new Date());
+  if(meta.opposition||meta.competition||meta.venue){
+    document.getElementById('meta-opposition').value=meta.opposition||'';
+    document.getElementById('meta-competition').value=meta.competition||'';
+    document.getElementById('meta-venue').value=meta.venue||'';
+  }
+  document.getElementById('meta-screen').classList.add('visible');
+  setupGridTouch();setupFlowLongPress();
+  setInterval(refreshClockDisplay,500);
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 
-// ─── TOUCH ZONE DETECTION ────────────────────────────────────────────────────
-function getZone(btn, clientX) {
-  const r = btn.getBoundingClientRect();
-  const rel = (clientX - r.left) / r.width;
-  if (rel < 0.333) return 'Left';
-  if (rel < 0.667) return 'Centre';
-  return 'Right';
+function fmtDate(d){return d.toLocaleDateString('en-IE',{weekday:'short',day:'numeric',month:'short',year:'numeric'});}
+
+function submitMeta(){
+  meta={
+    opposition: document.getElementById('meta-opposition').value.trim()||'—',
+    competition:document.getElementById('meta-competition').value.trim()||'—',
+    venue:      document.getElementById('meta-venue').value.trim()||'—',
+    date:       document.getElementById('meta-date').value,
+  };
+  localStorage.setItem(META_KEY,JSON.stringify(meta));
+  document.getElementById('meta-screen').classList.remove('visible');
+  refreshBanner();refreshAll();
+}
+function editMeta(){
+  document.getElementById('meta-opposition').value=meta.opposition!=='—'?meta.opposition:'';
+  document.getElementById('meta-competition').value=meta.competition!=='—'?meta.competition:'';
+  document.getElementById('meta-venue').value=meta.venue!=='—'?meta.venue:'';
+  document.getElementById('meta-date').value=meta.date||fmtDate(new Date());
+  document.getElementById('meta-screen').classList.add('visible');
+}
+function refreshBanner(){
+  document.getElementById('bn-opposition').textContent=meta.opposition||'—';
+  document.getElementById('bn-competition').textContent=meta.competition||'—';
+  document.getElementById('bn-venue').textContent=meta.venue||'—';
+  document.getElementById('bn-date').textContent=meta.date||'—';
 }
 
-function getZoneOverlay(btn, zone) {
-  const overlays = btn.querySelectorAll('.zone-overlay');
-  if (zone === 'Left')   return overlays[0];
-  if (zone === 'Centre') return overlays[1];
-  return overlays[2];
-}
-
-function getZoneLbl(btn, zone) {
-  const lbls = btn.querySelectorAll('.zone-lbl');
-  if (zone === 'Left')   return lbls[0];
-  if (zone === 'Centre') return lbls[1];
-  return lbls[2];
-}
-
-function clearZones(btn) {
-  btn.querySelectorAll('.zone-overlay').forEach(el => el.classList.remove('active'));
-  btn.querySelectorAll('.zone-lbl').forEach(el => el.classList.remove('active'));
-}
-
-function highlightZone(btn, zone) {
+// Zone detection
+function getZone(btn,clientX){const r=btn.getBoundingClientRect(),rel=(clientX-r.left)/r.width;return rel<0.333?'Left':rel<0.667?'Centre':'Right';}
+function getOvIdx(zone){return zone==='Left'?0:zone==='Centre'?1:2;}
+function clearZones(btn){btn.querySelectorAll('.zone-overlay,.zone-lbl').forEach(el=>el.classList.remove('active'));}
+function highlightZone(btn,zone){
   clearZones(btn);
-  getZoneOverlay(btn, zone).classList.add('active');
-  getZoneLbl(btn, zone).classList.add('active');
+  btn.querySelectorAll('.zone-overlay')[getOvIdx(zone)].classList.add('active');
+  btn.querySelectorAll('.zone-lbl')[getOvIdx(zone)].classList.add('active');
 }
 
-// ─── GRID TOUCH HANDLING ─────────────────────────────────────────────────────
-// Attach to grid container so we can handle touchmove outside the original button
-function setupGridTouch() {
-  const grid = document.getElementById('kpi-grid');
-
-  grid.addEventListener('touchstart', e => {
-    const touch = e.changedTouches[0];
-    const btn = touch.target.closest('.kpi-btn:not(.blank)');
-    if (!btn) return;
-    e.preventDefault();
-    activeTouch = { btn, startX: touch.clientX, identifier: touch.identifier };
-    highlightZone(btn, getZone(btn, touch.clientX));
-  }, { passive: false });
-
-  grid.addEventListener('touchmove', e => {
-    if (!activeTouch) return;
-    const touch = [...e.changedTouches].find(t => t.identifier === activeTouch.identifier);
-    if (!touch) return;
-    e.preventDefault();
-    highlightZone(activeTouch.btn, getZone(activeTouch.btn, touch.clientX));
-  }, { passive: false });
-
-  grid.addEventListener('touchend', e => {
-    if (!activeTouch) return;
-    const touch = [...e.changedTouches].find(t => t.identifier === activeTouch.identifier);
-    if (!touch) return;
-    e.preventDefault();
-    const zone = getZone(activeTouch.btn, touch.clientX);
-    fireEvent(activeTouch.btn, touch, zone);
-    clearZones(activeTouch.btn);
-    activeTouch = null;
-  }, { passive: false });
-
-  grid.addEventListener('touchcancel', () => {
-    if (activeTouch) { clearZones(activeTouch.btn); activeTouch = null; }
-  });
-
-  // Mouse fallback for desktop/testing
-  grid.addEventListener('mousedown', e => {
-    const btn = e.target.closest('.kpi-btn:not(.blank)');
-    if (!btn) return;
-    activeTouch = { btn, startX: e.clientX, identifier: 'mouse' };
-    highlightZone(btn, getZone(btn, e.clientX));
-  });
-  grid.addEventListener('mousemove', e => {
-    if (!activeTouch || activeTouch.identifier !== 'mouse') return;
-    highlightZone(activeTouch.btn, getZone(activeTouch.btn, e.clientX));
-  });
-  grid.addEventListener('mouseup', e => {
-    if (!activeTouch || activeTouch.identifier !== 'mouse') return;
-    const zone = getZone(activeTouch.btn, e.clientX);
-    fireEvent(activeTouch.btn, e, zone);
-    clearZones(activeTouch.btn);
-    activeTouch = null;
-  });
-  grid.addEventListener('mouseleave', () => {
-    if (activeTouch) { clearZones(activeTouch.btn); activeTouch = null; }
-  });
+function setupGridTouch(){
+  const g=document.getElementById('kpi-grid');
+  g.addEventListener('touchstart',e=>{const t=e.changedTouches[0],btn=t.target.closest('.kpi-btn:not(.blank)');if(!btn)return;e.preventDefault();activeTouch={btn,identifier:t.identifier};highlightZone(btn,getZone(btn,t.clientX));},{passive:false});
+  g.addEventListener('touchmove',e=>{if(!activeTouch)return;const t=[...e.changedTouches].find(x=>x.identifier===activeTouch.identifier);if(!t)return;e.preventDefault();highlightZone(activeTouch.btn,getZone(activeTouch.btn,t.clientX));},{passive:false});
+  g.addEventListener('touchend',e=>{if(!activeTouch)return;const t=[...e.changedTouches].find(x=>x.identifier===activeTouch.identifier);if(!t)return;e.preventDefault();fireEvent(activeTouch.btn,t,getZone(activeTouch.btn,t.clientX));clearZones(activeTouch.btn);activeTouch=null;},{passive:false});
+  g.addEventListener('touchcancel',()=>{if(activeTouch){clearZones(activeTouch.btn);activeTouch=null;}});
+  g.addEventListener('mousedown',e=>{const btn=e.target.closest('.kpi-btn:not(.blank)');if(!btn)return;activeTouch={btn,identifier:'mouse'};highlightZone(btn,getZone(btn,e.clientX));});
+  g.addEventListener('mousemove',e=>{if(!activeTouch||activeTouch.identifier!=='mouse')return;highlightZone(activeTouch.btn,getZone(activeTouch.btn,e.clientX));});
+  g.addEventListener('mouseup',e=>{if(!activeTouch||activeTouch.identifier!=='mouse')return;fireEvent(activeTouch.btn,e,getZone(activeTouch.btn,e.clientX));clearZones(activeTouch.btn);activeTouch=null;});
+  g.addEventListener('mouseleave',()=>{if(activeTouch){clearZones(activeTouch.btn);activeTouch=null;}});
 }
 
-// ─── EVENT LOGGING ────────────────────────────────────────────────────────────
-function fireEvent(btn, evtOrTouch, zone) {
-  if (state.pausedAt !== null)        { showToast('Game is paused — tap ▶ Resume first'); return; }
-  if (state.gameFlow === 'half_time') { showToast('Half Time — tap ▶ 2nd Half to continue'); return; }
-  if (state.gameFlow === 'ended')     { showToast('Game has ended'); return; }
-  if (state.gameFlow === 'pre')       doStartGame();
-
-  const kpi = btn.dataset.kpi;
-  const now = Date.now(), secs = getMatchSeconds(now), quarter = getQuarterFromSeconds(secs);
-  const m = Math.floor(secs/60).toString().padStart(2,'0');
-  const s = (secs%60).toString().padStart(2,'0');
-
-  // location stored on every event; defaults Centre
-  eventLog.push({ kpi, ts:now, quarter, time:`Q${quarter} ${m}:${s}`, location: zone });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
-
-  triggerFlash(btn);
-  triggerRipple(btn, evtOrTouch);
-  triggerScale(btn);
-  showLocBadge(btn, zone);
-
-  refreshCounts(); refreshScoreboard(); refreshQBars();
+function fireEvent(btn,evt,zone){
+  if(state.pausedAt!==null){showToast('Game is paused — tap ▶ Resume first');return;}
+  if(state.gameFlow==='half_time'){showToast('Half Time — tap ▶ 2nd Half to continue');return;}
+  if(state.gameFlow==='ended'){showToast('Game has ended');return;}
+  if(state.gameFlow==='pre')doStartGame();
+  const kpi=btn.dataset.kpi,now=Date.now(),secs=getMatchSeconds(now),quarter=getQuarterFromSeconds(secs);
+  const m=Math.floor(secs/60).toString().padStart(2,'0'),s=(secs%60).toString().padStart(2,'0');
+  eventLog.push({kpi,ts:now,quarter,time:`Q${quarter} ${m}:${s}`,location:zone});
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(eventLog));
+  triggerFlash(btn);triggerRipple(btn,evt);triggerScale(btn);showLocBadge(btn,zone);
+  refreshCounts();refreshScoreboard();updateQtrPills(getMatchSeconds());
 }
-
-function undoLast() {
-  if (eventLog.length === 0) { showToast('Nothing to undo'); return; }
-  const last = eventLog.pop();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
+function undoLast(){
+  if(eventLog.length===0){showToast('Nothing to undo');return;}
+  const last=eventLog.pop();localStorage.setItem(STORAGE_KEY,JSON.stringify(eventLog));
   showToast(`↩ Undid: ${last.kpi} [${last.location}] @ ${last.time}`);
-  refreshCounts(); refreshScoreboard(); refreshQBars();
+  refreshCounts();refreshScoreboard();updateQtrPills(getMatchSeconds());
+}
+function showLocBadge(btn,zone){
+  const b=btn.querySelector('.loc-badge');
+  b.textContent={Left:'◄ L',Centre:'● C',Right:'R ►'}[zone];
+  b.classList.add('show');setTimeout(()=>b.classList.remove('show'),800);
 }
 
-// ─── LOCATION BADGE ───────────────────────────────────────────────────────────
-function showLocBadge(btn, zone) {
-  const badge = btn.querySelector('.loc-badge');
-  const icons = { Left:'◄ L', Centre:'● C', Right:'R ►' };
-  badge.textContent = icons[zone];
-  badge.classList.add('show');
-  setTimeout(() => badge.classList.remove('show'), 800);
+function getMatchSeconds(atMs){
+  const now=atMs!==undefined?atMs:Date.now();
+  if(state.gameFlow==='pre')return 0;
+  let fhEnd=state.firstHalfEnd||now;
+  if(state.gameFlow==='first_half'&&state.pausedAt)fhEnd=state.pausedAt;
+  const fhSecs=state.firstHalfStart?Math.max(0,Math.floor((fhEnd-state.firstHalfStart-state.firstHalfPausedMs)/1000)):0;
+  if(state.gameFlow==='first_half'||state.gameFlow==='half_time')return fhSecs;
+  let shEnd=state.secondHalfEnd||now;
+  if(state.gameFlow==='second_half'&&state.pausedAt)shEnd=state.pausedAt;
+  const shSecs=state.secondHalfStart?Math.max(0,Math.floor((shEnd-state.secondHalfStart-state.secondHalfPausedMs)/1000)):0;
+  return H_START+shSecs;
 }
+function getQuarterFromSeconds(s){return s<Q1_Q2?1:s<H_START?2:s<Q3_Q4?3:4;}
 
-// ─── TIMING ──────────────────────────────────────────────────────────────────
-function getMatchSeconds(atMs) {
-  const now = atMs !== undefined ? atMs : Date.now();
-  if (state.gameFlow === 'pre') return 0;
-  let fhEnd = state.firstHalfEnd || now;
-  if (state.gameFlow === 'first_half' && state.pausedAt) fhEnd = state.pausedAt;
-  const fhSecs = state.firstHalfStart ? Math.max(0, Math.floor((fhEnd - state.firstHalfStart - state.firstHalfPausedMs)/1000)) : 0;
-  if (state.gameFlow === 'first_half' || state.gameFlow === 'half_time') return fhSecs;
-  let shEnd = state.secondHalfEnd || now;
-  if (state.gameFlow === 'second_half' && state.pausedAt) shEnd = state.pausedAt;
-  const shSecs = state.secondHalfStart ? Math.max(0, Math.floor((shEnd - state.secondHalfStart - state.secondHalfPausedMs)/1000)) : 0;
-  return H_START + shSecs;
-}
-function getQuarterFromSeconds(s) { return s<Q1_Q2?1:s<H_START?2:s<Q3_Q4?3:4; }
-
-// ─── GAME FLOW ────────────────────────────────────────────────────────────────
-function advanceGameFlow() {
-  const map = { pre:doStartGame, first_half:doEndFirstHalf, half_time:doStartSecondHalf, second_half:confirmEndGame, ended:()=>showToast('Full Time — long-press ▶ to start a new game') };
-  (map[state.gameFlow]||(() =>{}))();
-}
-function doStartGame() { Object.assign(state,{gameFlow:'first_half',firstHalfStart:Date.now(),firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null}); saveState();refreshAll();showToast('🏁 Kick off — 1st Half'); }
-function doEndFirstHalf() { if(state.pausedAt){state.firstHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;} state.gameFlow='half_time';state.firstHalfEnd=Date.now();saveState();refreshAll();showToast('⏸ Half Time'); }
-function doStartSecondHalf() { Object.assign(state,{gameFlow:'second_half',secondHalfStart:Date.now(),secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null});saveState();refreshAll();showToast('▶ 2nd Half'); }
-function doEndGame() { if(state.pausedAt){state.secondHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;} state.gameFlow='ended';state.secondHalfEnd=Date.now();saveState();document.getElementById('game-over-banner').classList.add('visible');refreshAll();showToast('⏹ Full Time'); }
-function togglePause() {
-  if (state.gameFlow!=='first_half'&&state.gameFlow!=='second_half'){showToast('Pause only during active half');return;}
-  if (state.pausedAt!==null){const dur=Date.now()-state.pausedAt;if(state.gameFlow==='first_half')state.firstHalfPausedMs+=dur;else state.secondHalfPausedMs+=dur;state.pausedAt=null;saveState();refreshAll();showToast('▶ Resumed');}
+function advanceGameFlow(){({pre:doStartGame,first_half:doEndFirstHalf,half_time:doStartSecondHalf,second_half:confirmEndGame,ended:()=>showToast('Full Time — long-press ▶ for new game')})[state.gameFlow]?.();}
+function doStartGame(){Object.assign(state,{gameFlow:'first_half',firstHalfStart:Date.now(),firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null});saveState();refreshAll();showToast('🏁 Kick off — 1st Half');}
+function doEndFirstHalf(){if(state.pausedAt){state.firstHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;}state.gameFlow='half_time';state.firstHalfEnd=Date.now();saveState();refreshAll();showToast('⏸ Half Time');}
+function doStartSecondHalf(){Object.assign(state,{gameFlow:'second_half',secondHalfStart:Date.now(),secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null});saveState();refreshAll();showToast('▶ 2nd Half');}
+function doEndGame(){if(state.pausedAt){state.secondHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;}state.gameFlow='ended';state.secondHalfEnd=Date.now();saveState();document.getElementById('game-over-banner').classList.add('visible');refreshAll();showToast('⏹ Full Time');}
+function togglePause(){
+  if(state.gameFlow!=='first_half'&&state.gameFlow!=='second_half'){showToast('Pause only during active half');return;}
+  if(state.pausedAt!==null){const d=Date.now()-state.pausedAt;state.gameFlow==='first_half'?state.firstHalfPausedMs+=d:state.secondHalfPausedMs+=d;state.pausedAt=null;saveState();refreshAll();showToast('▶ Resumed');}
   else{state.pausedAt=Date.now();saveState();refreshAll();showToast('⏸ Game paused');}
 }
 function confirmEndGame(){showConfirm('⏹ End Game','Mark match as finished?',doEndGame,true);}
 
-// ─── LONG PRESS ───────────────────────────────────────────────────────────────
 let lpTimer=null;
 function setupFlowLongPress(){
   const btn=document.getElementById('flow-btn');
@@ -579,31 +529,36 @@ function setupFlowLongPress(){
   btn.addEventListener('touchstart',start,{passive:true});btn.addEventListener('touchend',cancel,{passive:true});btn.addEventListener('touchcancel',cancel,{passive:true});
   btn.addEventListener('mousedown',start);btn.addEventListener('mouseup',cancel);btn.addEventListener('mouseleave',cancel);
 }
-function confirmNewGame(){showConfirm('⊕ New Game','Clear all match data and start fresh?',doNewGame,false);}
-function doNewGame(){eventLog=[];state={gameFlow:'pre',firstHalfStart:null,firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null};localStorage.setItem(STORAGE_KEY,JSON.stringify(eventLog));saveState();document.getElementById('game-over-banner').classList.remove('visible');refreshAll();showToast('New game ready — tap ▶ Start Game');}
+function confirmNewGame(){showConfirm('⊕ New Game','Clear all match data and metadata?',doNewGame,false);}
+function doNewGame(){
+  eventLog=[];meta={opposition:'',competition:'',venue:'',date:''};
+  state={gameFlow:'pre',firstHalfStart:null,firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null};
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(eventLog));localStorage.removeItem(META_KEY);saveState();
+  document.getElementById('game-over-banner').classList.remove('visible');
+  document.getElementById('meta-opposition').value='';document.getElementById('meta-competition').value='';
+  document.getElementById('meta-venue').value='';document.getElementById('meta-date').value=fmtDate(new Date());
+  document.getElementById('meta-screen').classList.add('visible');
+  refreshBanner();refreshAll();
+}
 
-// ─── CONFIRM ──────────────────────────────────────────────────────────────────
-function showConfirm(title,msg,action,isPositive){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-msg').textContent=msg;document.getElementById('confirm-yes').className=isPositive?'positive':'';pendingAction=action;document.getElementById('confirm-overlay').classList.add('visible');}
+function showConfirm(title,msg,action,isPos){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-msg').textContent=msg;document.getElementById('confirm-yes').className=isPos?'positive':'';pendingAction=action;document.getElementById('confirm-overlay').classList.add('visible');}
 function confirmAction(){closeConfirm();if(pendingAction){pendingAction();pendingAction=null;}}
 function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('visible');}
 
-// ─── CLOCK ────────────────────────────────────────────────────────────────────
-function adjustClock(deltaSecs){
-  const canAdj=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';
-  if(!canAdj)return;
-  const dMs=deltaSecs*1000;
+function adjustClock(dSecs){
+  const can=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';if(!can)return;
+  const dMs=dSecs*1000;
   if(state.gameFlow==='first_half'){state.firstHalfStart-=dMs;if(getMatchSeconds()<0)state.firstHalfStart+=dMs;}
   else if(state.gameFlow==='half_time'){state.firstHalfEnd=(state.firstHalfEnd||Date.now())+dMs;if(getMatchSeconds()<0)state.firstHalfEnd-=dMs;}
   else{state.secondHalfStart-=dMs;if(getMatchSeconds()<H_START)state.secondHalfStart+=dMs;}
-  saveState();refreshClockDisplay();refreshQBars();
-  showToast(`Clock ${deltaSecs>0?'+':''}${deltaSecs}s → ${document.getElementById('match-clock').textContent}`);
+  saveState();refreshClockDisplay();
+  showToast(`Clock ${dSecs>0?'+':''}${dSecs}s → ${document.getElementById('match-clock').textContent}`);
 }
-
 function refreshClockDisplay(){
   const clk=document.getElementById('match-clock'),st=document.getElementById('game-status'),ql=document.getElementById('quarter-label');
-  const canAdj=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';
-  document.getElementById('clock-minus').classList.toggle('disabled',!canAdj);
-  document.getElementById('clock-plus').classList.toggle('disabled',!canAdj);
+  const can=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';
+  document.getElementById('clock-minus').classList.toggle('disabled',!can);
+  document.getElementById('clock-plus').classList.toggle('disabled',!can);
   if(state.gameFlow==='pre'){clk.textContent='00:00';clk.classList.remove('paused');st.textContent='Long-press Flow to reset';ql.textContent='Pre-Match';updateQtrPills(0);return;}
   const secs=getMatchSeconds();
   clk.textContent=`${Math.floor(secs/60).toString().padStart(2,'0')}:${(secs%60).toString().padStart(2,'0')}`;
@@ -614,48 +569,27 @@ function refreshClockDisplay(){
   ql.textContent=`Quarter ${getQuarterFromSeconds(secs)}`;
   updateQtrPills(secs);
 }
-
 function updateQtrPills(secs){
-  const isPre=state.gameFlow==='pre', curQ=isPre?0:getQuarterFromSeconds(secs);
+  const isPre=state.gameFlow==='pre',curQ=isPre?0:getQuarterFromSeconds(secs);
   for(let q=1;q<=4;q++){
-    const pill=document.querySelector(`.qtr-pill[data-q="${q}"]`),scoreEl=document.getElementById(`q${q}-score`);
+    const pill=document.querySelector(`.qtr-pill[data-q="${q}"]`),sc=document.getElementById(`q${q}-score`);
     pill.classList.toggle('active',q===curQ&&!isPre);pill.classList.toggle('done',q<curQ);
     const gf=eventLog.filter(e=>e.kpi==='Goal – Us'&&e.quarter===q).length;
     const pf=eventLog.filter(e=>(e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)')&&e.quarter===q).length;
     const ga=eventLog.filter(e=>e.kpi==='Goal – Them'&&e.quarter===q).length;
     const pa=eventLog.filter(e=>(e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)')&&e.quarter===q).length;
-    const u=gf*3+pf,t=ga*3+pa;
-    scoreEl.textContent=(u>0||t>0)?`${u}–${t}`:'';
+    const u=gf*3+pf,t=ga*3+pa;sc.textContent=(u>0||t>0)?`${u}–${t}`:'';
   }
 }
 
-// ─── Q-BARS ───────────────────────────────────────────────────────────────────
-function refreshQBars(){
-  const counts={};KPI_LIST.forEach(k=>{counts[k]={1:0,2:0,3:0,4:0};});
-  eventLog.forEach(e=>{if(counts[e.kpi])counts[e.kpi][e.quarter]++;});
-  const curQ=state.gameFlow==='pre'?0:getQuarterFromSeconds(getMatchSeconds());
-  document.querySelectorAll('.kpi-btn:not(.blank)').forEach(btn=>{
-    const c=counts[btn.dataset.kpi];if(!c)return;
-    const maxVal=Math.max(c[1],c[2],c[3],c[4],1);
-    btn.querySelectorAll('.qbar-seg').forEach(seg=>{
-      const q=parseInt(seg.dataset.q);
-      seg.classList.toggle('lit',c[q]>0);seg.classList.toggle('cur',q===curQ);
-      seg.style.opacity=c[q]>0?String(0.35+(c[q]/maxVal)*0.65):'';
-    });
-  });
-}
-
-// ─── REFRESH ──────────────────────────────────────────────────────────────────
-function refreshAll(){refreshCounts();refreshScoreboard();refreshFlowBtn();refreshPauseBtn();refreshClockDisplay();refreshQBars();}
-
+function refreshAll(){refreshBanner();refreshCounts();refreshScoreboard();refreshFlowBtn();refreshPauseBtn();refreshClockDisplay();}
 function refreshFlowBtn(){
   const btn=document.getElementById('flow-btn');
-  const map={pre:{label:'▶ Start Game',bg:'rgba(0,230,118,0.15)',bc:'rgba(0,230,118,0.5)',c:'var(--green)'},first_half:{label:'⏸ End 1st Half',bg:'rgba(255,171,64,0.15)',bc:'rgba(255,171,64,0.5)',c:'var(--amber)'},half_time:{label:'▶ 2nd Half',bg:'rgba(0,212,255,0.15)',bc:'rgba(0,212,255,0.5)',c:'var(--accent)'},second_half:{label:'⏹ End Game',bg:'rgba(255,61,90,0.15)',bc:'rgba(255,61,90,0.5)',c:'var(--red)'},ended:{label:'— Full Time',bg:'rgba(107,122,153,0.10)',bc:'rgba(107,122,153,0.3)',c:'var(--text-dim)'}};
-  const s=map[state.gameFlow]||map.pre;btn.textContent=s.label;btn.style.background=s.bg;btn.style.borderColor=s.bc;btn.style.color=s.c;
+  const m={pre:{label:'▶ Start Game',bg:'rgba(0,230,118,0.15)',bc:'rgba(0,230,118,0.5)',c:'var(--green)'},first_half:{label:'⏸ End 1st Half',bg:'rgba(255,171,64,0.15)',bc:'rgba(255,171,64,0.5)',c:'var(--amber)'},half_time:{label:'▶ 2nd Half',bg:'rgba(0,212,255,0.15)',bc:'rgba(0,212,255,0.5)',c:'var(--accent)'},second_half:{label:'⏹ End Game',bg:'rgba(255,61,90,0.15)',bc:'rgba(255,61,90,0.5)',c:'var(--red)'},ended:{label:'— Full Time',bg:'rgba(107,122,153,0.10)',bc:'rgba(107,122,153,0.3)',c:'var(--text-dim)'}};
+  const s=m[state.gameFlow]||m.pre;btn.textContent=s.label;btn.style.background=s.bg;btn.style.borderColor=s.bc;btn.style.color=s.c;
 }
 function refreshPauseBtn(){
-  const btn=document.getElementById('pause-btn');
-  const can=state.gameFlow==='first_half'||state.gameFlow==='second_half';
+  const btn=document.getElementById('pause-btn'),can=state.gameFlow==='first_half'||state.gameFlow==='second_half';
   if(!can){btn.className='action-btn disabled-btn';btn.textContent='⏸ Pause';return;}
   if(state.pausedAt!==null){btn.className='action-btn resuming';btn.textContent='▶ Resume';}
   else{btn.className='action-btn';btn.style.background='rgba(255,171,64,0.12)';btn.style.borderColor='rgba(255,171,64,0.4)';btn.style.color='var(--amber)';btn.textContent='⏸ Pause';}
@@ -668,20 +602,19 @@ function refreshScoreboard(){
   const gf=eventLog.filter(e=>e.kpi==='Goal – Us').length,pf=eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
   const ga=eventLog.filter(e=>e.kpi==='Goal – Them').length,pa=eventLog.filter(e=>e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)').length;
   const usEl=document.getElementById('score-us'),usPts=document.getElementById('score-us-pts');
-  const themEl=document.getElementById('score-them'),themPts=document.getElementById('score-them-pts');
-  const nUs=`${gf}-${pf.toString().padStart(2,'0')}`,nThem=`${ga}-${pa.toString().padStart(2,'0')}`;
+  const thEl=document.getElementById('score-them'),thPts=document.getElementById('score-them-pts');
+  const nUs=`${gf}-${pf.toString().padStart(2,'0')}`,nTh=`${ga}-${pa.toString().padStart(2,'0')}`;
   if(usEl.textContent!==nUs){usEl.textContent=nUs;flashEl(usEl);}
-  if(themEl.textContent!==nThem){themEl.textContent=nThem;flashEl(themEl);}
-  usPts.textContent=`(${gf*3+pf})`;themPts.textContent=`(${ga*3+pa})`;
+  if(thEl.textContent!==nTh){thEl.textContent=nTh;flashEl(thEl);}
+  usPts.textContent=`(${gf*3+pf})`;thPts.textContent=`(${ga*3+pa})`;
 }
 function flashEl(el){el.classList.add('flash-score');setTimeout(()=>el.classList.remove('flash-score'),400);}
 
-// ─── ANIMATIONS ───────────────────────────────────────────────────────────────
 function triggerFlash(btn){btn.classList.add('flashing');setTimeout(()=>btn.classList.remove('flashing'),200);}
 function triggerRipple(btn,evt){
   const rect=btn.getBoundingClientRect();
-  const cx=evt.clientX!==undefined?evt.clientX:(evt.touches?evt.touches[0].clientX:rect.left+rect.width/2);
-  const cy=evt.clientY!==undefined?evt.clientY:(evt.touches?evt.touches[0].clientY:rect.top+rect.height/2);
+  const cx=evt.clientX!==undefined?evt.clientX:rect.left+rect.width/2;
+  const cy=evt.clientY!==undefined?evt.clientY:rect.top+rect.height/2;
   const size=Math.max(rect.width,rect.height);
   const r=document.createElement('span');r.className='ripple';
   r.style.cssText=`width:${size}px;height:${size}px;left:${cx-rect.left-size/2}px;top:${cy-rect.top-size/2}px`;
@@ -689,12 +622,10 @@ function triggerRipple(btn,evt){
 }
 function triggerScale(btn){btn.style.transform='scale(0.90)';setTimeout(()=>{btn.style.transform='scale(1.04)';},100);setTimeout(()=>{btn.style.transform='';},220);if(navigator.vibrate)navigator.vibrate(18);}
 
-// ─── STATS MODAL ──────────────────────────────────────────────────────────────
 function switchTab(tab){
   document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.toggle('active',t.id===`tab-${tab}`));
 }
-
 function showDisplay(){
   const raw={};KPI_LIST.forEach(k=>{raw[k]={1:0,2:0,3:0,4:0};});
   eventLog.forEach(e=>{if(raw[e.kpi])raw[e.kpi][e.quarter]++;});
@@ -702,7 +633,6 @@ function showDisplay(){
   const pct=(n,d)=>d===0?'--':Math.round((n/d)*100)+'%';
   const maxQ=(()=>{if(state.gameFlow==='pre')return 0;if(state.gameFlow==='ended')return 4;if(state.gameFlow==='half_time')return 2;return getQuarterFromSeconds(getMatchSeconds());})();
   const cell=(v,bad,q,isTotal=false)=>`<td class="${isTotal?'total-col':q<=maxQ?(bad?'bad':'good'):''}">${v}</td>`;
-
   const rows=[
     {label:'Our Scores',target:'≥5/qtr',qval:q=>c('Point – Play (Us)',q)+c('Point – Free (Us)',q)+c('Goal – Us',q),bad:v=>v<5},
     {label:'Shot Eff – Play (Us)',target:'≥70%',isPct:true,qval:q=>({n:c('Point – Play (Us)',q),d:c('Point – Play (Us)',q)+c('Miss – Play (Us)',q)}),bad:(n,d)=>d>0&&n/d<0.70},
@@ -721,38 +651,45 @@ function showDisplay(){
     {label:'Run thru 65',target:'≥7 total',qval:q=>c('Run thru 65',q),bad:v=>v<7},
     {label:'Cards for Us',target:'0',qval:q=>c('Card for Us',q),bad:v=>v>0},
   ];
-
   const tbody=document.getElementById('stats-tbody');tbody.innerHTML='';
   rows.forEach(row=>{
     const tr=document.createElement('tr');
     let html=`<td>${row.label}</td><td class="target-col">${row.target}</td>`;
     if(row.isPct){let tN=0,tD=0;[1,2,3,4].forEach(q=>{const{n,d}=row.qval(q);tN+=n;tD+=d;html+=cell(pct(n,d),row.bad(n,d),q);});html+=`<td class="total-col">${pct(tN,tD)}</td>`;}
-    else{let total=0;[1,2,3,4].forEach(q=>{const v=row.qval(q);total+=v;html+=cell(v,row.bad(v),q);});html+=`<td class="total-col">${total}</td>`;}
+    else{let tot=0;[1,2,3,4].forEach(q=>{const v=row.qval(q);tot+=v;html+=cell(v,row.bad(v),q);});html+=`<td class="total-col">${tot}</td>`;}
     tr.innerHTML=html;tbody.appendChild(tr);
   });
-
   const rawTbody=document.getElementById('raw-tbody');rawTbody.innerHTML='';
   KPI_GROUPS.forEach(group=>{
     const htr=document.createElement('tr');htr.className='cat-header';htr.innerHTML=`<td colspan="6">${group.label}</td>`;rawTbody.appendChild(htr);
     group.kpis.forEach(kpi=>{
-      const total=[1,2,3,4].reduce((s,q)=>s+c(kpi,q),0);
-      const tr=document.createElement('tr');tr.innerHTML=`<td>${kpi}</td><td>${c(kpi,1)}</td><td>${c(kpi,2)}</td><td>${c(kpi,3)}</td><td>${c(kpi,4)}</td><td class="total-col">${total}</td>`;
+      const tot=[1,2,3,4].reduce((s,q)=>s+c(kpi,q),0);
+      const tr=document.createElement('tr');tr.innerHTML=`<td>${kpi}</td><td>${c(kpi,1)}</td><td>${c(kpi,2)}</td><td>${c(kpi,3)}</td><td>${c(kpi,4)}</td><td class="total-col">${tot}</td>`;
       rawTbody.appendChild(tr);
     });
   });
-
   const gf=eventLog.filter(e=>e.kpi==='Goal – Us').length,pf=eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
   const ga=eventLog.filter(e=>e.kpi==='Goal – Them').length,pa=eventLog.filter(e=>e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)').length;
   document.getElementById('modal-score-summary').textContent=`Us ${gf}-${pf.toString().padStart(2,'0')} (${gf*3+pf})  vs  Them ${ga}-${pa.toString().padStart(2,'0')} (${ga*3+pa})`;
+  const parts=[];
+  if(meta.opposition&&meta.opposition!=='—')parts.push(`vs ${meta.opposition}`);
+  if(meta.competition&&meta.competition!=='—')parts.push(meta.competition);
+  if(meta.venue&&meta.venue!=='—')parts.push(meta.venue);
+  if(meta.date)parts.push(meta.date);
+  document.getElementById('modal-match-info').textContent=parts.join('  ·  ');
   document.getElementById('modal-overlay').classList.add('visible');
 }
 function hideDisplay(evt){if(evt&&evt.target!==document.getElementById('modal-overlay'))return;document.getElementById('modal-overlay').classList.remove('visible');}
 
-// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
 function exportCSV(){
   if(eventLog.length===0){showToast('No events logged yet');return;}
-  // Location is now a first-class column
-  const lines=['Event,Quarter,MatchTime,Location,Timestamp_ms'];
+  const lines=[];
+  lines.push('Match Metadata');
+  lines.push(`Opposition,${meta.opposition||'—'}`);
+  lines.push(`Competition,${meta.competition||'—'}`);
+  lines.push(`Venue,${meta.venue||'—'}`);
+  lines.push(`Date,${meta.date||'—'}`);
+  lines.push('','Event Log','Event,Quarter,MatchTime,Location,Timestamp_ms');
   eventLog.forEach(e=>lines.push(`"${e.kpi}",${e.quarter},"${e.time}","${e.location||'Centre'}",${e.ts}`));
   lines.push('','KPI Summary','KPI,Qtr1,Qtr2,Qtr3,Qtr4,Total');
   const data={};KPI_LIST.forEach(k=>{data[k]={1:0,2:0,3:0,4:0};});eventLog.forEach(e=>{if(data[e.kpi])data[e.kpi][e.quarter]++;});
@@ -765,17 +702,16 @@ function exportCSV(){
     if(L+C+R>0)lines.push(`"${k}",${L},${C},${R}`);
   });
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const fn=`gaa_stats_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.csv`;
+  const fn=`gaa_${(meta.opposition||'match').replace(/\s+/g,'_')}_${(meta.date||new Date().toISOString().slice(0,10)).replace(/[,\s]+/g,'_')}.csv`;
   if(navigator.share&&navigator.canShare){const file=new File([blob],fn,{type:'text/csv'});if(navigator.canShare({files:[file]})){navigator.share({files:[file],title:'GAA Stats'}).catch(()=>showCsvOverlay(URL.createObjectURL(blob),fn));return;}}
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>{URL.revokeObjectURL(url);showToast('CSV downloaded ✓');},300);
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>{URL.revokeObjectURL(url);showToast('CSV downloaded ✓');},300);
 }
 let csvBlobUrl=null;
 function showCsvOverlay(url,fn){if(csvBlobUrl)URL.revokeObjectURL(csvBlobUrl);csvBlobUrl=url;const l=document.getElementById('csv-link');l.href=url;l.download=fn;l.textContent=`📄 ${fn}`;document.getElementById('csv-overlay').classList.add('visible');}
 function closeCsvOverlay(){document.getElementById('csv-overlay').classList.remove('visible');if(csvBlobUrl){URL.revokeObjectURL(csvBlobUrl);csvBlobUrl=null;}showToast('CSV ready — use Share → Save to Files');}
-
 function saveState(){localStorage.setItem(STATE_KEY,JSON.stringify(state));}
 
-// ─── TOAST ────────────────────────────────────────────────────────────────────
 let toastTimer=null;
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2500);}
 
