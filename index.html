@@ -7,383 +7,224 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GAA Stats">
 <title>GAA Hurling Stats</title>
-<!--
-  GAA HURLING STATS PWA v6
-  ========================
-  20 KPI buttons in a 4x5 grid — single tap records event + timestamp.
-  Per-quarter Q-bars on each button show where events are clustering.
-  Quarter pills show running score per quarter.
-  Stats modal has two tabs: KPI Dashboard (calculated metrics vs targets)
-  and Raw Counts (every KPI broken down by quarter, grouped by category).
-  Fully offline via Service Worker. Persists across reloads via localStorage.
--->
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;900&display=swap');
 
   :root {
-    --bg: #0a0e1a;
-    --surface: #111827;
-    --surface2: #1a2235;
-    --border: #1e2d45;
-    --text: #e8eef8;
-    --text-dim: #6b7a99;
-    --accent: #00d4ff;
-    --green: #00e676;
-    --red: #ff3d5a;
-    --amber: #ffab40;
-    --purple: #b388ff;
-    --flash: #00ff88;
-    --radius: 14px;
-    --radius-sm: 9px;
+    --bg:#0a0e1a; --surface:#111827; --surface2:#1a2235;
+    --border:#1e2d45; --text:#e8eef8; --text-dim:#6b7a99;
+    --accent:#00d4ff; --green:#00e676; --red:#ff3d5a;
+    --amber:#ffab40; --purple:#b388ff; --flash:#00ff88;
+    --radius:12px; --radius-sm:8px;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
 
-  html, body {
-    width: 100%; height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
-    overflow: hidden;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    padding: 8px 8px 6px;
-    gap: 5px;
-  }
+  #app { display:grid; grid-template-rows:auto auto 1fr auto; height:100vh; padding:6px 8px 5px; gap:5px; }
 
   /* SCOREBOARD */
-  #scoreboard {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 5px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .score-team { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-  .score-label { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
-  .score-block { display: flex; align-items: baseline; gap: 5px; }
-  .score-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 36px; line-height: 1; letter-spacing: 2px;
-    color: var(--text); transition: color 0.2s;
-  }
-  .score-total {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px; line-height: 1;
-    color: var(--text-dim); transition: color 0.2s;
-  }
-  .score-value.flash-score, .score-total.flash-score { color: var(--flash); }
-  #match-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  #quarter-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
-  #match-clock { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--text); letter-spacing: 1px; transition: color 0.2s; }
-  #match-clock.paused { color: var(--amber); }
-  #game-status { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
-
-  /* Clock row with adjust buttons */
-  #clock-row { display: flex; align-items: center; gap: 6px; }
-  .clock-adj {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px; font-weight: 900;
-    letter-spacing: 0px; line-height: 1;
-    padding: 5px 7px;
-    border-radius: 7px;
-    border: 1.5px solid rgba(107,122,153,0.3);
-    background: rgba(107,122,153,0.1);
-    color: var(--text-dim);
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-  .clock-adj:active { transform: scale(0.88); }
-  .clock-adj.minus:active { background: rgba(255,61,90,0.2); border-color: rgba(255,61,90,0.5); color: var(--red); }
-  .clock-adj.plus:active  { background: rgba(0,230,118,0.2); border-color: rgba(0,230,118,0.5); color: var(--green); }
-  .clock-adj.disabled { opacity: 0.2; pointer-events: none; }
+  #scoreboard { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:4px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .score-team { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .score-label { font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); }
+  .score-block { display:flex; align-items:baseline; gap:5px; }
+  .score-value { font-family:'Bebas Neue',sans-serif; font-size:34px; line-height:1; letter-spacing:2px; color:var(--text); transition:color 0.2s; }
+  .score-total { font-family:'Bebas Neue',sans-serif; font-size:18px; line-height:1; color:var(--text-dim); transition:color 0.2s; }
+  .score-value.flash-score,.score-total.flash-score { color:var(--flash); }
+  #match-info { display:flex; flex-direction:column; align-items:center; gap:1px; }
+  #quarter-label { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--accent); }
+  #clock-row { display:flex; align-items:center; gap:6px; }
+  #match-clock { font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--text); letter-spacing:1px; transition:color 0.2s; }
+  #match-clock.paused { color:var(--amber); }
+  #game-status { font-size:9px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); }
+  .clock-adj { font-size:10px; font-weight:900; line-height:1; padding:4px 6px; border-radius:6px; border:1.5px solid rgba(107,122,153,0.3); background:rgba(107,122,153,0.1); color:var(--text-dim); cursor:pointer; transition:background 0.15s,border-color 0.15s,color 0.15s,transform 0.1s; }
+  .clock-adj:active { transform:scale(0.88); }
+  .clock-adj.minus:active { background:rgba(255,61,90,0.2); border-color:rgba(255,61,90,0.5); color:var(--red); }
+  .clock-adj.plus:active  { background:rgba(0,230,118,0.2); border-color:rgba(0,230,118,0.5); color:var(--green); }
+  .clock-adj.disabled { opacity:0.2; pointer-events:none; }
 
   /* QUARTER PILLS */
-  #quarter-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    flex-shrink: 0;
-  }
-  .qtr-pill {
-    background: var(--surface2);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-dim);
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 1px; padding: 7px 4px;
-    text-transform: uppercase;
-    text-align: center;
-    pointer-events: none;
-    transition: background 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
-    display: flex; flex-direction: column; align-items: center; gap: 0px;
-  }
-  .qtr-pill.active {
-    background: var(--accent); border-color: var(--accent);
-    color: #000; box-shadow: 0 0 14px rgba(0,212,255,0.4);
-  }
-  .qtr-pill.done { border-color: rgba(0,212,255,0.3); color: rgba(0,212,255,0.5); }
-  .qtr-score { font-size: 10px; font-weight: 700; margin-top: 1px; }
-  .qtr-pill.active .qtr-score { color: #000; }
-  .qtr-pill.done .qtr-score { color: rgba(0,212,255,0.6); }
-  .qtr-pill:not(.active):not(.done) .qtr-score { color: var(--text-dim); opacity: 0.5; }
+  #quarter-row { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; flex-shrink:0; }
+  .qtr-pill { background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-size:11px; font-weight:700; letter-spacing:1px; padding:5px 4px; text-transform:uppercase; text-align:center; pointer-events:none; transition:background 0.3s,border-color 0.3s,color 0.3s,box-shadow 0.3s; display:flex; flex-direction:column; align-items:center; gap:0; }
+  .qtr-pill.active { background:var(--accent); border-color:var(--accent); color:#000; box-shadow:0 0 14px rgba(0,212,255,0.4); }
+  .qtr-pill.done { border-color:rgba(0,212,255,0.3); color:rgba(0,212,255,0.5); }
+  .qtr-score { font-size:10px; font-weight:700; margin-top:1px; }
+  .qtr-pill.active .qtr-score { color:#000; }
+  .qtr-pill.done .qtr-score { color:rgba(0,212,255,0.6); }
+  .qtr-pill:not(.active):not(.done) .qtr-score { color:var(--text-dim); opacity:0.5; }
 
-  /* KPI GRID */
-  #kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(5, 1fr);
-    gap: 5px;
-    flex: 1;
-    min-height: 0;
-  }
+  /* KPI GRID 5×5 */
+  #kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr); gap:5px; flex:1; min-height:0; }
 
   .kpi-btn {
-    position: relative; overflow: hidden;
-    border-radius: var(--radius);
-    border: 1.5px solid var(--border);
-    cursor: pointer;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 0px; padding: 4px 4px 2px;
-    transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
-    -webkit-tap-highlight-color: transparent;
+    position:relative; overflow:hidden;
+    border-radius:var(--radius); border:1.5px solid var(--border);
+    cursor:pointer; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:0; padding:3px 0 2px;
+    touch-action:none;
+    transition:transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
   }
+  .kpi-btn.blank { background:rgba(255,255,255,0.02); border-color:rgba(30,45,69,0.4); cursor:default; pointer-events:none; }
 
-    .kpi-btn.cat-green  { background: linear-gradient(145deg, #0d2010, #0a1a0d); border-color: #1a4020; }
-  .kpi-btn.cat-red    { background: linear-gradient(145deg, #200d0d, #1a0a0a); border-color: #401a1a; }
-  .kpi-btn.cat-yellow { background: linear-gradient(145deg, #1a1500, #131000); border-color: #3a3000; }
-  .kpi-btn.cat-orange { background: linear-gradient(145deg, #1a0f00, #140b00); border-color: #3a2000; }
-  .kpi-btn.cat-purple { background: linear-gradient(145deg, #150d20, #100a1a); border-color: #301a40; }
-  .kpi-btn.cat-blue   { background: linear-gradient(145deg, #0d1520, #0a1018); border-color: #1a2a40; }
+  .kpi-btn.cat-green  { background:linear-gradient(145deg,#0d2010,#0a1a0d); border-color:#1a4020; }
+  .kpi-btn.cat-red    { background:linear-gradient(145deg,#200d0d,#1a0a0a); border-color:#401a1a; }
+  .kpi-btn.cat-yellow { background:linear-gradient(145deg,#1a1500,#131000); border-color:#3a3000; }
+  .kpi-btn.cat-orange { background:linear-gradient(145deg,#1a0f00,#140b00); border-color:#3a2000; }
+  .kpi-btn.cat-purple { background:linear-gradient(145deg,#150d20,#100a1a); border-color:#301a40; }
+  .kpi-btn.cat-blue   { background:linear-gradient(145deg,#0d1520,#0a1018); border-color:#1a2a40; }
+  .kpi-btn.cat-grey   { background:linear-gradient(145deg,#141820,#0f1218); border-color:#252e40; }
 
-  .kpi-label {
-    font-size: 12px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.3px;
-    text-align: center; line-height: 1.15; color: var(--text);
-    order: 2; margin-top: 1px;
+  /* Zone dividers */
+  .kpi-btn:not(.blank)::before {
+    content:''; position:absolute; top:10%; bottom:14%; left:33.33%;
+    width:1px; pointer-events:none; z-index:1;
   }
-  .kpi-count {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 32px; line-height: 1;
-    order: 1; opacity: 0.85;
-  }
-  .cat-green  .kpi-count { color: #00e676; }
-  .cat-red    .kpi-count { color: #ff3d5a; }
-  .cat-yellow .kpi-count { color: #ffe082; }
-  .cat-orange .kpi-count { color: #ffab40; }
-  .cat-purple .kpi-count { color: #b388ff; }
-  .cat-blue   .kpi-count { color: #00d4ff; }
+  .cat-green::before  { background:rgba(0,230,118,0.12);  box-shadow:calc(33.33% + 0px) 0 0 rgba(0,230,118,0.12); }
+  .cat-red::before    { background:rgba(255,61,90,0.12);  box-shadow:calc(33.33% + 0px) 0 0 rgba(255,61,90,0.12); }
+  .cat-yellow::before { background:rgba(255,224,130,0.12);box-shadow:calc(33.33% + 0px) 0 0 rgba(255,224,130,0.12); }
+  .cat-orange::before { background:rgba(255,171,64,0.12); box-shadow:calc(33.33% + 0px) 0 0 rgba(255,171,64,0.12); }
+  .cat-purple::before { background:rgba(179,136,255,0.12);box-shadow:calc(33.33% + 0px) 0 0 rgba(179,136,255,0.12); }
+  .cat-blue::before   { background:rgba(0,212,255,0.12);  box-shadow:calc(33.33% + 0px) 0 0 rgba(0,212,255,0.12); }
+  .cat-grey::before   { background:rgba(138,155,181,0.12);box-shadow:calc(33.33% + 0px) 0 0 rgba(138,155,181,0.12); }
 
-  /* Q-BAR: mini per-quarter bar at bottom of each button */
-  .kpi-qbar {
-    order: 3;
-    display: flex;
-    width: 88%;
-    height: 5px;
-    margin-top: 4px;
-    gap: 2px;
-    border-radius: 3px;
-  }
-  .qbar-seg {
-    flex: 1;
-    height: 100%;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.07);
-    transition: background 0.25s, opacity 0.25s;
-  }
-  .cat-green  .qbar-seg.lit { background: rgba(0,230,118,0.65); }
-  .cat-red    .qbar-seg.lit { background: rgba(255,61,90,0.65); }
-  .cat-yellow .qbar-seg.lit { background: rgba(255,224,130,0.65); }
-  .cat-orange .qbar-seg.lit { background: rgba(255,171,64,0.65); }
-  .cat-purple .qbar-seg.lit { background: rgba(179,136,255,0.65); }
-  .cat-blue   .qbar-seg.lit { background: rgba(0,212,255,0.65); }
-  .qbar-seg.cur { box-shadow: 0 0 5px rgba(255,255,255,0.4); }
+  /* Zone overlays */
+  .zone-overlay { position:absolute; top:0; bottom:0; opacity:0; pointer-events:none; transition:opacity 0.12s; z-index:0; }
+  .zone-overlay.zl { left:0;      width:33.33%; border-radius:11px 0 0 11px; }
+  .zone-overlay.zm { left:33.33%; width:33.34%; }
+  .zone-overlay.zr { left:66.66%; width:33.34%; border-radius:0 11px 11px 0; }
+  .zone-overlay.active { opacity:1; }
+  .cat-green  .zone-overlay { background:rgba(0,230,118,0.15); }
+  .cat-red    .zone-overlay { background:rgba(255,61,90,0.15); }
+  .cat-yellow .zone-overlay { background:rgba(255,224,130,0.15); }
+  .cat-orange .zone-overlay { background:rgba(255,171,64,0.15); }
+  .cat-purple .zone-overlay { background:rgba(179,136,255,0.15); }
+  .cat-blue   .zone-overlay { background:rgba(0,212,255,0.15); }
+  .cat-grey   .zone-overlay { background:rgba(138,155,181,0.15); }
 
-  /* Flash overlay */
-  .kpi-btn::after {
-    content: ''; position: absolute; inset: 0;
-    background: var(--flash); opacity: 0;
-    border-radius: inherit; pointer-events: none;
-    transition: opacity 0.05s;
-  }
-  .kpi-btn.flashing::after { opacity: 0.35; }
+  /* Zone label strip */
+  .zone-labels { position:absolute; bottom:3px; left:0; right:0; display:flex; pointer-events:none; z-index:2; }
+  .zone-lbl { flex:1; text-align:center; font-size:8px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; opacity:0.2; transition:opacity 0.12s; }
+  .zone-lbl.active { opacity:0.9; }
+  .cat-green  .zone-lbl { color:#00e676; }
+  .cat-red    .zone-lbl { color:#ff3d5a; }
+  .cat-yellow .zone-lbl { color:#ffe082; }
+  .cat-orange .zone-lbl { color:#ffab40; }
+  .cat-purple .zone-lbl { color:#b388ff; }
+  .cat-blue   .zone-lbl { color:#00d4ff; }
+  .cat-grey   .zone-lbl { color:#8a9bb5; }
+
+  /* Location badge */
+  .loc-badge { position:absolute; top:5px; right:6px; font-size:10px; font-weight:900; letter-spacing:0.5px; border-radius:4px; padding:1px 5px; opacity:0; z-index:4; pointer-events:none; transition:opacity 0.15s; }
+  .loc-badge.show { opacity:1; }
+  .cat-green  .loc-badge { background:rgba(0,230,118,0.25);  color:#00e676; }
+  .cat-red    .loc-badge { background:rgba(255,61,90,0.25);  color:#ff3d5a; }
+  .cat-yellow .loc-badge { background:rgba(255,224,130,0.25);color:#ffe082; }
+  .cat-orange .loc-badge { background:rgba(255,171,64,0.25); color:#ffab40; }
+  .cat-purple .loc-badge { background:rgba(179,136,255,0.25);color:#b388ff; }
+  .cat-blue   .loc-badge { background:rgba(0,212,255,0.25);  color:#00d4ff; }
+  .cat-grey   .loc-badge { background:rgba(138,155,181,0.25);color:#8a9bb5; }
+
+  .kpi-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.2px; text-align:center; line-height:1.15; color:var(--text); position:relative; z-index:2; margin-top:1px; }
+  .kpi-count { font-family:'Bebas Neue',sans-serif; font-size:30px; line-height:1; position:relative; z-index:2; opacity:0.9; }
+  .cat-green  .kpi-count { color:#00e676; }
+  .cat-red    .kpi-count { color:#ff3d5a; }
+  .cat-yellow .kpi-count { color:#ffe082; }
+  .cat-orange .kpi-count { color:#ffab40; }
+  .cat-purple .kpi-count { color:#b388ff; }
+  .cat-blue   .kpi-count { color:#00d4ff; }
+  .cat-grey   .kpi-count { color:#8a9bb5; }
+
+  .kpi-qbar { position:relative; z-index:2; display:flex; width:82%; height:4px; margin-top:3px; gap:2px; border-radius:3px; }
+  .qbar-seg { flex:1; height:100%; border-radius:2px; background:rgba(255,255,255,0.07); transition:background 0.25s,opacity 0.25s; }
+  .cat-green  .qbar-seg.lit { background:rgba(0,230,118,0.65); }
+  .cat-red    .qbar-seg.lit { background:rgba(255,61,90,0.65); }
+  .cat-yellow .qbar-seg.lit { background:rgba(255,224,130,0.65); }
+  .cat-orange .qbar-seg.lit { background:rgba(255,171,64,0.65); }
+  .cat-purple .qbar-seg.lit { background:rgba(179,136,255,0.65); }
+  .cat-blue   .qbar-seg.lit { background:rgba(0,212,255,0.65); }
+  .cat-grey   .qbar-seg.lit { background:rgba(138,155,181,0.65); }
+  .qbar-seg.cur { box-shadow:0 0 5px rgba(255,255,255,0.4); }
+
+  /* Flash */
+  .kpi-btn::after { content:''; position:absolute; inset:0; background:var(--flash); opacity:0; border-radius:inherit; pointer-events:none; transition:opacity 0.05s; z-index:3; }
+  .kpi-btn.flashing::after { opacity:0.3; }
 
   /* Ripple */
-  .ripple {
-    position: absolute; border-radius: 50%;
-    background: rgba(255,255,255,0.3);
-    transform: scale(0);
-    animation: ripple-anim 0.45s ease-out forwards;
-    pointer-events: none;
-  }
-  @keyframes ripple-anim {
-    0%   { transform: scale(0); opacity: 1; }
-    100% { transform: scale(4); opacity: 0; }
-  }
+  .ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,0.25); transform:scale(0); animation:rip 0.45s ease-out forwards; pointer-events:none; z-index:5; }
+  @keyframes rip { 0%{transform:scale(0);opacity:1;} 100%{transform:scale(4);opacity:0;} }
 
   /* BOTTOM ROW */
-  #bottom-row {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 5px;
-    flex-shrink: 0;
-  }
-  .action-btn {
-    padding: 11px 4px;
-    border-radius: var(--radius-sm);
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 0.5px; text-transform: uppercase;
-    cursor: pointer; border: 1.5px solid;
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
-    text-align: center; line-height: 1.3;
-  }
-  .action-btn:active { opacity: 0.72; transform: scale(0.95); }
-  #flow-btn { font-size: 10px; }
-  #pause-btn { background: rgba(255,171,64,0.12); border-color: rgba(255,171,64,0.4); color: var(--amber); }
-  #pause-btn.resuming { background: rgba(0,230,118,0.15); border-color: rgba(0,230,118,0.5); color: var(--green); }
-  #pause-btn.disabled-btn { background: rgba(107,122,153,0.08); border-color: rgba(107,122,153,0.2); color: rgba(107,122,153,0.35); pointer-events: none; }
-  #undo-btn    { background: rgba(255,61,90,0.12);   border-color: rgba(255,61,90,0.4);   color: var(--red);    }
-  #display-btn { background: rgba(0,212,255,0.12);   border-color: rgba(0,212,255,0.4);   color: var(--accent); }
-  #export-btn  { background: rgba(179,136,255,0.12); border-color: rgba(179,136,255,0.4); color: var(--purple); }
-  #flow-btn.long-pressing { box-shadow: 0 0 0 3px rgba(255,61,90,0.6); }
+  #bottom-row { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; flex-shrink:0; }
+  .action-btn { padding:9px 4px; border-radius:var(--radius-sm); font-size:11px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; border:1.5px solid; transition:background 0.2s,border-color 0.2s,color 0.2s; text-align:center; line-height:1.3; }
+  .action-btn:active { opacity:0.72; transform:scale(0.95); }
+  #pause-btn { background:rgba(255,171,64,0.12); border-color:rgba(255,171,64,0.4); color:var(--amber); }
+  #pause-btn.resuming { background:rgba(0,230,118,0.15); border-color:rgba(0,230,118,0.5); color:var(--green); }
+  #pause-btn.disabled-btn { background:rgba(107,122,153,0.08); border-color:rgba(107,122,153,0.2); color:rgba(107,122,153,0.35); pointer-events:none; }
+  #undo-btn    { background:rgba(255,61,90,0.12);   border-color:rgba(255,61,90,0.4);   color:var(--red); }
+  #display-btn { background:rgba(0,212,255,0.12);   border-color:rgba(0,212,255,0.4);   color:var(--accent); }
+  #export-btn  { background:rgba(179,136,255,0.12); border-color:rgba(179,136,255,0.4); color:var(--purple); }
+  #flow-btn.long-pressing { box-shadow:0 0 0 3px rgba(255,61,90,0.6); }
 
-  /* CONFIRM DIALOG */
-  #confirm-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.88); z-index: 200;
-    align-items: center; justify-content: center;
-    padding: 24px; backdrop-filter: blur(8px);
-  }
-  #confirm-overlay.visible { display: flex; }
-  #confirm-box {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 20px; padding: 28px 24px;
-    max-width: 360px; width: 100%; text-align: center;
-  }
-  #confirm-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; margin-bottom: 10px; }
-  #confirm-box p { font-size: 14px; color: var(--text-dim); line-height: 1.5; margin-bottom: 22px; }
-  .confirm-btns { display: flex; gap: 10px; }
-  .confirm-btns button { flex: 1; padding: 14px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border: 1.5px solid; }
-  #confirm-yes { background: var(--red); border-color: var(--red); color: #fff; }
-  #confirm-yes.positive { background: var(--green); border-color: var(--green); color: #000; }
-  #confirm-no  { background: var(--surface2); border-color: var(--border); color: var(--text); }
+  /* CONFIRM */
+  #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:200; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(8px); }
+  #confirm-overlay.visible { display:flex; }
+  #confirm-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 24px; max-width:360px; width:100%; text-align:center; }
+  #confirm-box h3 { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:2px; margin-bottom:10px; }
+  #confirm-box p { font-size:14px; color:var(--text-dim); line-height:1.5; margin-bottom:22px; }
+  .confirm-btns { display:flex; gap:10px; }
+  .confirm-btns button { flex:1; padding:14px; border-radius:var(--radius-sm); font-size:14px; font-weight:700; letter-spacing:1px; text-transform:uppercase; cursor:pointer; border:1.5px solid; }
+  #confirm-yes { background:var(--red); border-color:var(--red); color:#fff; }
+  #confirm-yes.positive { background:var(--green); border-color:var(--green); color:#000; }
+  #confirm-no  { background:var(--surface2); border-color:var(--border); color:var(--text); }
 
   /* STATS MODAL */
-  #modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.85); z-index: 100;
-    align-items: center; justify-content: center;
-    padding: 12px; backdrop-filter: blur(6px);
-  }
-  #modal-overlay.visible { display: flex; }
-  #modal-box {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 18px; padding: 16px;
-    width: 100%; max-width: 760px;
-    max-height: 92vh; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  #modal-box h2 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; color: var(--accent); text-align: center; }
-  #modal-score-summary { text-align: center; font-size: 13px; color: var(--text-dim); font-weight: 700; letter-spacing: 1px; }
+  #modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100; align-items:center; justify-content:center; padding:12px; backdrop-filter:blur(6px); }
+  #modal-overlay.visible { display:flex; }
+  #modal-box { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; width:100%; max-width:860px; max-height:92vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+  #modal-box h2 { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:2px; color:var(--accent); text-align:center; }
+  #modal-score-summary { text-align:center; font-size:13px; color:var(--text-dim); font-weight:700; letter-spacing:1px; }
+  #modal-tabs { display:flex; gap:6px; flex-shrink:0; }
+  .modal-tab { flex:1; padding:9px 4px; background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .modal-tab.active { background:var(--accent); border-color:var(--accent); color:#000; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  #stats-table,#raw-table { width:100%; border-collapse:collapse; font-size:14px; }
+  #stats-table th,#raw-table th { background:var(--surface2); color:var(--text-dim); font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:10px 6px; text-align:center; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; }
+  #stats-table th:first-child,#raw-table th:first-child { text-align:left; }
+  #stats-table td,#raw-table td { padding:10px 6px; text-align:center; border-bottom:1px solid rgba(30,45,69,0.5); font-weight:600; color:var(--text); }
+  #stats-table td:first-child,#raw-table td:first-child { text-align:left; color:var(--text-dim); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; }
+  #stats-table td.target-col { color:var(--amber); font-size:12px; font-weight:700; }
+  #stats-table td.total-col,#raw-table td.total-col { color:var(--accent); font-weight:900; font-size:16px; }
+  #stats-table td.bad  { color:var(--red) !important; font-weight:800; }
+  #stats-table td.good { color:var(--green) !important; }
+  tr.cat-header td { background:rgba(255,255,255,0.04); color:var(--text-dim) !important; font-size:10px !important; font-weight:900 !important; letter-spacing:2px !important; text-transform:uppercase !important; padding:7px 6px !important; border-bottom:none !important; }
+  #close-modal-btn { margin-top:4px; width:100%; padding:14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:15px; font-weight:700; letter-spacing:1px; text-transform:uppercase; cursor:pointer; flex-shrink:0; }
 
-  /* Tabs */
-  #modal-tabs { display: flex; gap: 6px; flex-shrink: 0; }
-  .modal-tab {
-    flex: 1; padding: 9px 4px;
-    background: var(--surface2); border: 1.5px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text-dim);
-    font-size: 12px; font-weight: 700; letter-spacing: 1px;
-    text-transform: uppercase; text-align: center; cursor: pointer;
-    transition: all 0.2s;
-  }
-  .modal-tab.active { background: var(--accent); border-color: var(--accent); color: #000; }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
+  /* CSV */
+  #csv-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(8px); }
+  #csv-overlay.visible { display:flex; }
+  #csv-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:24px; max-width:420px; width:100%; text-align:center; }
+  #csv-box h3 { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:var(--accent); margin-bottom:8px; }
+  #csv-box p { font-size:13px; color:var(--text-dim); margin-bottom:16px; line-height:1.5; }
+  #csv-link { display:block; padding:14px; background:rgba(179,136,255,0.15); border:1.5px solid rgba(179,136,255,0.5); border-radius:var(--radius-sm); color:var(--purple); font-size:14px; font-weight:700; letter-spacing:1px; text-decoration:none; text-transform:uppercase; margin-bottom:10px; }
+  #csv-close { width:100%; padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-size:13px; font-weight:700; cursor:pointer; letter-spacing:1px; text-transform:uppercase; }
 
-  #stats-table, #raw-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  #stats-table th, #raw-table th {
-    background: var(--surface2); color: var(--text-dim);
-    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
-    text-transform: uppercase; padding: 10px 6px; text-align: center;
-    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2;
-  }
-  #stats-table th:first-child, #raw-table th:first-child { text-align: left; }
-  #stats-table td, #raw-table td {
-    padding: 11px 6px; text-align: center;
-    border-bottom: 1px solid rgba(30,45,69,0.5);
-    font-weight: 600; color: var(--text);
-  }
-  #stats-table td:first-child, #raw-table td:first-child { text-align: left; color: var(--text-dim); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
-  #stats-table td.target-col { color: var(--amber); font-size: 12px; font-weight: 700; }
-  #stats-table td.total-col, #raw-table td.total-col { color: var(--accent); font-weight: 900; font-size: 16px; }
-  #stats-table td.bad  { color: var(--red) !important; font-weight: 800; }
-  #stats-table td.good { color: var(--green) !important; }
-  #stats-table tr:last-child td, #raw-table tr:last-child td { border-bottom: none; }
-  #stats-table tr:hover td, #raw-table tr:hover td { background: rgba(255,255,255,0.03); }
+  #game-over-banner { display:none; position:fixed; top:0; left:0; right:0; background:linear-gradient(90deg,#00e676,#00d4ff); color:#000; text-align:center; font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:3px; padding:8px; z-index:50; }
+  #game-over-banner.visible { display:block; }
 
-  /* Category headers in raw counts table */
-  tr.cat-header td {
-    background: rgba(255,255,255,0.04);
-    color: var(--text-dim) !important;
-    font-size: 10px !important; font-weight: 900 !important;
-    letter-spacing: 2px !important; text-transform: uppercase !important;
-    padding: 7px 6px !important; border-bottom: none !important;
-  }
+  #toast { position:fixed; bottom:60px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); border:1px solid var(--border); border-radius:30px; padding:7px 20px; font-size:13px; font-weight:600; color:var(--text-dim); opacity:0; transition:all 0.25s; z-index:400; white-space:nowrap; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-  #close-modal-btn {
-    margin-top: 4px; width: 100%; padding: 15px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-size: 15px; font-weight: 700; letter-spacing: 1px;
-    text-transform: uppercase; cursor: pointer; flex-shrink: 0;
+  @media (orientation:landscape) and (min-width:900px) {
+    #app { padding:5px 10px 4px; gap:4px; }
+    #scoreboard { padding:3px 20px; }
+    .score-value { font-size:36px; }
+    #match-clock { font-size:30px; }
+    .kpi-count { font-size:32px; }
+    .kpi-label { font-size:11px; }
+    .action-btn { padding:8px 4px; }
   }
-
-  /* CSV overlay */
-  #csv-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.88); z-index: 300;
-    align-items: center; justify-content: center;
-    padding: 24px; backdrop-filter: blur(8px);
-  }
-  #csv-overlay.visible { display: flex; }
-  #csv-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; max-width: 420px; width: 100%; text-align: center; }
-  #csv-box h3 { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; color: var(--accent); margin-bottom: 8px; }
-  #csv-box p { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
-  #csv-link { display: block; padding: 14px; background: rgba(179,136,255,0.15); border: 1.5px solid rgba(179,136,255,0.5); border-radius: var(--radius-sm); color: var(--purple); font-size: 14px; font-weight: 700; letter-spacing: 1px; text-decoration: none; text-transform: uppercase; margin-bottom: 10px; }
-  #csv-close { width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; }
-
-  /* Game over banner */
-  #game-over-banner {
-    display: none; position: fixed; top: 0; left: 0; right: 0;
-    background: linear-gradient(90deg, #00e676, #00d4ff);
-    color: #000; text-align: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px; letter-spacing: 3px;
-    padding: 10px; z-index: 50;
-  }
-  #game-over-banner.visible { display: block; }
-
-  /* Toast */
-  #toast {
-    position: fixed; bottom: 72px; left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 30px; padding: 8px 20px;
-    font-size: 13px; font-weight: 600; color: var(--text-dim);
-    opacity: 0; transition: all 0.25s; z-index: 400; white-space: nowrap;
-  }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -391,8 +232,6 @@
 <div id="game-over-banner">⬛ Full Time ⬛</div>
 
 <div id="app">
-
-  <!-- SCOREBOARD -->
   <div id="scoreboard">
     <div class="score-team">
       <div class="score-label">Us</div>
@@ -419,7 +258,6 @@
     </div>
   </div>
 
-  <!-- QUARTER PILLS -->
   <div id="quarter-row">
     <div class="qtr-pill" data-q="1">Q1<span class="qtr-score" id="q1-score"></span></div>
     <div class="qtr-pill" data-q="2">Q2<span class="qtr-score" id="q2-score"></span></div>
@@ -427,35 +265,43 @@
     <div class="qtr-pill" data-q="4">Q4<span class="qtr-score" id="q4-score"></span></div>
   </div>
 
-  <!-- KPI GRID 4×5 -->
   <div id="kpi-grid">
-    <button class="kpi-btn cat-green"  data-kpi="Point – Play (Us)"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Shot Miss – Play"    onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Play</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-green"  data-kpi="Point – Free (Us)"     onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Shot Miss – Free" onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Free</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <!-- Row 1: Scoring Us -->
+    <button class="kpi-btn cat-green"  data-kpi="Point – Play (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Miss – Play (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-green"  data-kpi="Point – Free (Us)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Miss – Free (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-green"  data-kpi="Goal – Us">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
 
-    <button class="kpi-btn cat-red"    data-kpi="Point – Them"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Point – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-orange" data-kpi="Shot Miss – Them"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Shot Miss – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-red"    data-kpi="Goal – Them"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Goal – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-green"  data-kpi="Goal – Us"           onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Goal – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <!-- Row 2: Scoring Them -->
+    <button class="kpi-btn cat-red"    data-kpi="Point – Play (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Play (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-orange" data-kpi="Miss – Play (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Play (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Point – Free (Them)"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Point Free (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-orange" data-kpi="Miss – Free (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Miss Free (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Goal – Them">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Goal (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
 
-    <button class="kpi-btn cat-purple" data-kpi="PO Win – Us"        onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Win – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-red"    data-kpi="PO Lost – Us"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Lost – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-blue"   data-kpi="PO Win – Them"      onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Win – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-blue"   data-kpi="PO Lost – Them"     onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">PO Lost – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <!-- Row 3: Puckouts -->
+    <button class="kpi-btn cat-purple" data-kpi="Our PO – We Win">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Our PO – We Lose">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Our PO We Lose</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-purple" data-kpi="Their PO – We Win"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Their PO – We Lose"><div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Their PO We Lose</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn blank" aria-hidden="true"></button>
 
-    <button class="kpi-btn cat-purple" data-kpi="Turnover – Forced"    onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Forced</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-purple" data-kpi="Contest Win"       onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Contest Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-red"    data-kpi="Contest Lost"      onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Contest Lost</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-purple" data-kpi="Turnover – Us"   onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <!-- Row 4: Turnovers & Contests -->
+    <button class="kpi-btn cat-blue"   data-kpi="T/O Forced (Us)">   <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Us)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="T/O Forced (Them)"> <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Them)</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-blue"   data-kpi="Contested Win">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Contested Loss">    <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Loss</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-yellow" data-kpi="Run thru 65">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
 
-    <button class="kpi-btn cat-purple" data-kpi="Free Won – Us"           onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Free Won – Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-red"    data-kpi="Free Won – Them"          onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Free Won – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-yellow" data-kpi="Run thru 65"         onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
-    <button class="kpi-btn cat-red"    data-kpi="Turnover – Them"         onclick="logEvent(this,event)"><span class="kpi-count">0</span><span class="kpi-label">T/O – Them</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span></button>
+    <!-- Row 5: Frees, Unforced, Cards -->
+    <button class="kpi-btn cat-blue"   data-kpi="Unforced Win">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Unforced Loss">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Loss</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-purple" data-kpi="Free Win">          <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Win</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey"   data-kpi="Free Lost">         <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Free Lost</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-red"    data-kpi="Card for Us">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Card for Us</span><span class="kpi-qbar"><span class="qbar-seg" data-q="1"></span><span class="qbar-seg" data-q="2"></span><span class="qbar-seg" data-q="3"></span><span class="qbar-seg" data-q="4"></span></span><div class="zone-labels"><span class="zone-lbl zll">◄L</span><span class="zone-lbl zml">●</span><span class="zone-lbl zrl">R►</span></div><div class="loc-badge"></div></button>
   </div>
 
-  <!-- BOTTOM ROW -->
   <div id="bottom-row">
     <button class="action-btn" id="flow-btn"    onclick="advanceGameFlow()">▶ Start Game</button>
     <button class="action-btn" id="pause-btn"   onclick="togglePause()">⏸ Pause</button>
@@ -463,10 +309,9 @@
     <button class="action-btn" id="display-btn" onclick="showDisplay()">📊 Stats</button>
     <button class="action-btn" id="export-btn"  onclick="exportCSV()">⬇ CSV</button>
   </div>
-
 </div>
 
-<!-- CONFIRM DIALOG -->
+<!-- CONFIRM -->
 <div id="confirm-overlay">
   <div id="confirm-box">
     <h3 id="confirm-title">Are you sure?</h3>
@@ -489,17 +334,13 @@
     </div>
     <div class="tab-content active" id="tab-kpi">
       <table id="stats-table">
-        <thead>
-          <tr><th>KPI Metric</th><th>Target</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr>
-        </thead>
+        <thead><tr><th>KPI Metric</th><th>Target</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr></thead>
         <tbody id="stats-tbody"></tbody>
       </table>
     </div>
     <div class="tab-content" id="tab-raw">
       <table id="raw-table">
-        <thead>
-          <tr><th>Event</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr>
-        </thead>
+        <thead><tr><th>Event</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr></thead>
         <tbody id="raw-tbody"></tbody>
       </table>
     </div>
@@ -507,7 +348,7 @@
   </div>
 </div>
 
-<!-- CSV FALLBACK (Safari) -->
+<!-- CSV FALLBACK -->
 <div id="csv-overlay">
   <div id="csv-box">
     <h3>📥 Export CSV</h3>
@@ -520,210 +361,164 @@
 <div id="toast"></div>
 
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
 const KPI_LIST = [
-  'Point – Play (Us)','Shot Miss – Play','Point – Free (Us)','Shot Miss – Free',
-  'Point – Them','Shot Miss – Them','Goal – Them','Goal – Us',
-  'PO Win – Us','PO Lost – Us','PO Win – Them','PO Lost – Them',
-  'Turnover – Forced','Contest Win','Contest Lost','Turnover – Us',
-  'Free Won – Us','Free Won – Them','Run thru 65','Turnover – Them'
+  'Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us',
+  'Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them',
+  'Our PO – We Win','Our PO – We Lose','Their PO – We Win','Their PO – We Lose',
+  'T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Run thru 65',
+  'Unforced Win','Unforced Loss','Free Win','Free Lost','Card for Us'
 ];
 
 const KPI_GROUPS = [
-  { label: '⬢ Scoring — Us',       kpis: ['Point – Play (Us)','Shot Miss – Play','Point – Free (Us)','Shot Miss – Free','Goal – Us'] },
-  { label: '⬢ Scoring — Them',     kpis: ['Point – Them','Shot Miss – Them','Goal – Them'] },
-  { label: '⬢ Puckouts — Us',      kpis: ['PO Win – Us','PO Lost – Us'] },
-  { label: '⬢ Puckouts — Them',    kpis: ['PO Win – Them','PO Lost – Them'] },
-  { label: '⬢ Possession',         kpis: ['Turnover – Forced','Turnover – Us','Turnover – Them','Contest Win','Contest Lost'] },
-  { label: '⬢ Frees & Discipline', kpis: ['Free Won – Us','Free Won – Them','Run thru 65'] },
+  { label:'⬢ Scoring — Us',         kpis:['Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us'] },
+  { label:'⬢ Scoring — Them',       kpis:['Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them'] },
+  { label:'⬢ Puckouts — Our',       kpis:['Our PO – We Win','Our PO – We Lose'] },
+  { label:'⬢ Puckouts — Their',     kpis:['Their PO – We Win','Their PO – We Lose'] },
+  { label:'⬢ Turnovers & Contests', kpis:['T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Unforced Win','Unforced Loss'] },
+  { label:'⬢ Frees & Discipline',   kpis:['Free Win','Free Lost','Run thru 65','Card for Us'] },
 ];
 
-const STORAGE_KEY = 'gaa_event_log_v8';
-const STATE_KEY   = 'gaa_game_state_v8';
-const Q1_Q2   = 15 * 60;
-const H_START = 30 * 60;
-const Q3_Q4   = 45 * 60;
+const STORAGE_KEY = 'gaa_event_log_v10';
+const STATE_KEY   = 'gaa_game_state_v10';
+const Q1_Q2=15*60, H_START=30*60, Q3_Q4=45*60;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── STATE ───────────────────────────────────────────────────────────────────
 let eventLog = [];
-let state = {
-  gameFlow: 'pre',
-  firstHalfStart: null, firstHalfEnd: null, firstHalfPausedMs: 0,
-  secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0,
-  pausedAt: null,
-};
-let clockInterval = null;
+let state = { gameFlow:'pre', firstHalfStart:null, firstHalfEnd:null, firstHalfPausedMs:0, secondHalfStart:null, secondHalfEnd:null, secondHalfPausedMs:0, pausedAt:null };
 let pendingAction = null;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── TOUCH STATE (per-button) ────────────────────────────────────────────────
+// We track touch on the grid container and route to the correct button
+let activeTouch = null; // { btn, startX, startY, identifier }
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
 function init() {
-  const savedLog   = localStorage.getItem(STORAGE_KEY);
-  const savedState = localStorage.getItem(STATE_KEY);
-  if (savedLog)   eventLog = JSON.parse(savedLog);
-  if (savedState) state    = JSON.parse(savedState);
+  const sl = localStorage.getItem(STORAGE_KEY), ss = localStorage.getItem(STATE_KEY);
+  if (sl) eventLog = JSON.parse(sl);
+  if (ss) state    = JSON.parse(ss);
+  setupGridTouch();
   refreshAll();
-  clockInterval = setInterval(refreshClockDisplay, 500);
+  setInterval(refreshClockDisplay, 500);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   setupFlowLongPress();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIMING
-// ─────────────────────────────────────────────────────────────────────────────
-function getMatchSeconds(atMs) {
-  const now = atMs !== undefined ? atMs : Date.now();
-  if (state.gameFlow === 'pre') return 0;
-
-  let fhEnd = state.firstHalfEnd || now;
-  if (state.gameFlow === 'first_half' && state.pausedAt) fhEnd = state.pausedAt;
-  const fhSecs = state.firstHalfStart
-    ? Math.max(0, Math.floor((fhEnd - state.firstHalfStart - state.firstHalfPausedMs) / 1000)) : 0;
-  if (state.gameFlow === 'first_half' || state.gameFlow === 'half_time') return fhSecs;
-
-  let shEnd = state.secondHalfEnd || now;
-  if (state.gameFlow === 'second_half' && state.pausedAt) shEnd = state.pausedAt;
-  const shSecs = state.secondHalfStart
-    ? Math.max(0, Math.floor((shEnd - state.secondHalfStart - state.secondHalfPausedMs) / 1000)) : 0;
-  return H_START + shSecs;
+// ─── TOUCH ZONE DETECTION ────────────────────────────────────────────────────
+function getZone(btn, clientX) {
+  const r = btn.getBoundingClientRect();
+  const rel = (clientX - r.left) / r.width;
+  if (rel < 0.333) return 'Left';
+  if (rel < 0.667) return 'Centre';
+  return 'Right';
 }
 
-function getQuarterFromSeconds(secs) {
-  if (secs < Q1_Q2)   return 1;
-  if (secs < H_START) return 2;
-  if (secs < Q3_Q4)   return 3;
-  return 4;
+function getZoneOverlay(btn, zone) {
+  const overlays = btn.querySelectorAll('.zone-overlay');
+  if (zone === 'Left')   return overlays[0];
+  if (zone === 'Centre') return overlays[1];
+  return overlays[2];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GAME FLOW
-// ─────────────────────────────────────────────────────────────────────────────
-function advanceGameFlow() {
-  switch (state.gameFlow) {
-    case 'pre':         doStartGame();       break;
-    case 'first_half':  doEndFirstHalf();    break;
-    case 'half_time':   doStartSecondHalf(); break;
-    case 'second_half': confirmEndGame();    break;
-    case 'ended': showToast('Full Time — long-press ▶ to start a new game'); break;
-  }
+function getZoneLbl(btn, zone) {
+  const lbls = btn.querySelectorAll('.zone-lbl');
+  if (zone === 'Left')   return lbls[0];
+  if (zone === 'Centre') return lbls[1];
+  return lbls[2];
 }
 
-function doStartGame() {
-  Object.assign(state, {
-    gameFlow: 'first_half',
-    firstHalfStart: Date.now(), firstHalfEnd: null, firstHalfPausedMs: 0,
-    secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0,
-    pausedAt: null,
+function clearZones(btn) {
+  btn.querySelectorAll('.zone-overlay').forEach(el => el.classList.remove('active'));
+  btn.querySelectorAll('.zone-lbl').forEach(el => el.classList.remove('active'));
+}
+
+function highlightZone(btn, zone) {
+  clearZones(btn);
+  getZoneOverlay(btn, zone).classList.add('active');
+  getZoneLbl(btn, zone).classList.add('active');
+}
+
+// ─── GRID TOUCH HANDLING ─────────────────────────────────────────────────────
+// Attach to grid container so we can handle touchmove outside the original button
+function setupGridTouch() {
+  const grid = document.getElementById('kpi-grid');
+
+  grid.addEventListener('touchstart', e => {
+    const touch = e.changedTouches[0];
+    const btn = touch.target.closest('.kpi-btn:not(.blank)');
+    if (!btn) return;
+    e.preventDefault();
+    activeTouch = { btn, startX: touch.clientX, identifier: touch.identifier };
+    highlightZone(btn, getZone(btn, touch.clientX));
+  }, { passive: false });
+
+  grid.addEventListener('touchmove', e => {
+    if (!activeTouch) return;
+    const touch = [...e.changedTouches].find(t => t.identifier === activeTouch.identifier);
+    if (!touch) return;
+    e.preventDefault();
+    highlightZone(activeTouch.btn, getZone(activeTouch.btn, touch.clientX));
+  }, { passive: false });
+
+  grid.addEventListener('touchend', e => {
+    if (!activeTouch) return;
+    const touch = [...e.changedTouches].find(t => t.identifier === activeTouch.identifier);
+    if (!touch) return;
+    e.preventDefault();
+    const zone = getZone(activeTouch.btn, touch.clientX);
+    fireEvent(activeTouch.btn, touch, zone);
+    clearZones(activeTouch.btn);
+    activeTouch = null;
+  }, { passive: false });
+
+  grid.addEventListener('touchcancel', () => {
+    if (activeTouch) { clearZones(activeTouch.btn); activeTouch = null; }
   });
-  saveState(); refreshAll(); showToast('🏁 Kick off — 1st Half');
+
+  // Mouse fallback for desktop/testing
+  grid.addEventListener('mousedown', e => {
+    const btn = e.target.closest('.kpi-btn:not(.blank)');
+    if (!btn) return;
+    activeTouch = { btn, startX: e.clientX, identifier: 'mouse' };
+    highlightZone(btn, getZone(btn, e.clientX));
+  });
+  grid.addEventListener('mousemove', e => {
+    if (!activeTouch || activeTouch.identifier !== 'mouse') return;
+    highlightZone(activeTouch.btn, getZone(activeTouch.btn, e.clientX));
+  });
+  grid.addEventListener('mouseup', e => {
+    if (!activeTouch || activeTouch.identifier !== 'mouse') return;
+    const zone = getZone(activeTouch.btn, e.clientX);
+    fireEvent(activeTouch.btn, e, zone);
+    clearZones(activeTouch.btn);
+    activeTouch = null;
+  });
+  grid.addEventListener('mouseleave', () => {
+    if (activeTouch) { clearZones(activeTouch.btn); activeTouch = null; }
+  });
 }
 
-function doEndFirstHalf() {
-  if (state.pausedAt) { state.firstHalfPausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
-  state.gameFlow = 'half_time'; state.firstHalfEnd = Date.now();
-  saveState(); refreshAll(); showToast('⏸ Half Time');
-}
-
-function doStartSecondHalf() {
-  Object.assign(state, { gameFlow: 'second_half', secondHalfStart: Date.now(), secondHalfEnd: null, secondHalfPausedMs: 0, pausedAt: null });
-  saveState(); refreshAll(); showToast('▶ 2nd Half — clock at 30:00');
-}
-
-function doEndGame() {
-  if (state.pausedAt) { state.secondHalfPausedMs += Date.now() - state.pausedAt; state.pausedAt = null; }
-  state.gameFlow = 'ended'; state.secondHalfEnd = Date.now();
-  saveState();
-  document.getElementById('game-over-banner').classList.add('visible');
-  refreshAll(); showToast('⏹ Full Time');
-}
-
-function togglePause() {
-  if (state.gameFlow !== 'first_half' && state.gameFlow !== 'second_half') {
-    showToast('Pause only available during active half'); return;
-  }
-  if (state.pausedAt !== null) {
-    const dur = Date.now() - state.pausedAt;
-    if (state.gameFlow === 'first_half') state.firstHalfPausedMs += dur;
-    else state.secondHalfPausedMs += dur;
-    state.pausedAt = null;
-    saveState(); refreshAll(); showToast('▶ Resumed');
-  } else {
-    state.pausedAt = Date.now();
-    saveState(); refreshAll(); showToast('⏸ Game paused');
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LONG PRESS → New Game
-// ─────────────────────────────────────────────────────────────────────────────
-let lpTimer = null;
-
-function setupFlowLongPress() {
-  const btn = document.getElementById('flow-btn');
-  const start = () => { btn.classList.add('long-pressing'); lpTimer = setTimeout(() => { btn.classList.remove('long-pressing'); confirmNewGame(); }, 800); };
-  const cancel = () => { clearTimeout(lpTimer); btn.classList.remove('long-pressing'); };
-  btn.addEventListener('touchstart', start, { passive: true });
-  btn.addEventListener('touchend', cancel, { passive: true });
-  btn.addEventListener('touchcancel', cancel, { passive: true });
-  btn.addEventListener('mousedown', start);
-  btn.addEventListener('mouseup', cancel);
-  btn.addEventListener('mouseleave', cancel);
-}
-
-function confirmNewGame() {
-  showConfirm('⊕ New Game', 'Clear all match data and start fresh?', doNewGame, false);
-}
-function doNewGame() {
-  eventLog = [];
-  state = { gameFlow: 'pre', firstHalfStart: null, firstHalfEnd: null, firstHalfPausedMs: 0, secondHalfStart: null, secondHalfEnd: null, secondHalfPausedMs: 0, pausedAt: null };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
-  saveState();
-  document.getElementById('game-over-banner').classList.remove('visible');
-  refreshAll(); showToast('New game ready — tap ▶ Start Game');
-}
-
-function confirmEndGame() {
-  showConfirm('⏹ End Game', 'Mark match as finished? Stats & CSV still available.', doEndGame, true);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIRM DIALOG
-// ─────────────────────────────────────────────────────────────────────────────
-function showConfirm(title, msg, action, isPositive) {
-  document.getElementById('confirm-title').textContent = title;
-  document.getElementById('confirm-msg').textContent   = msg;
-  document.getElementById('confirm-yes').className = isPositive ? 'positive' : '';
-  pendingAction = action;
-  document.getElementById('confirm-overlay').classList.add('visible');
-}
-function confirmAction() { closeConfirm(); if (pendingAction) { pendingAction(); pendingAction = null; } }
-function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('visible'); }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EVENT LOGGING
-// ─────────────────────────────────────────────────────────────────────────────
-function logEvent(btn, evt) {
+// ─── EVENT LOGGING ────────────────────────────────────────────────────────────
+function fireEvent(btn, evtOrTouch, zone) {
   if (state.pausedAt !== null)        { showToast('Game is paused — tap ▶ Resume first'); return; }
   if (state.gameFlow === 'half_time') { showToast('Half Time — tap ▶ 2nd Half to continue'); return; }
   if (state.gameFlow === 'ended')     { showToast('Game has ended'); return; }
   if (state.gameFlow === 'pre')       doStartGame();
 
   const kpi = btn.dataset.kpi;
-  const now = Date.now();
-  const secs = getMatchSeconds(now);
-  const quarter = getQuarterFromSeconds(secs);
-  const m = Math.floor(secs / 60).toString().padStart(2,'0');
-  const s = (secs % 60).toString().padStart(2,'0');
+  const now = Date.now(), secs = getMatchSeconds(now), quarter = getQuarterFromSeconds(secs);
+  const m = Math.floor(secs/60).toString().padStart(2,'0');
+  const s = (secs%60).toString().padStart(2,'0');
 
-  eventLog.push({ kpi, ts: now, quarter, time: `Q${quarter} ${m}:${s}` });
+  // location stored on every event; defaults Centre
+  eventLog.push({ kpi, ts:now, quarter, time:`Q${quarter} ${m}:${s}`, location: zone });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
 
-  triggerFlash(btn); triggerRipple(btn, evt); triggerScale(btn);
+  triggerFlash(btn);
+  triggerRipple(btn, evtOrTouch);
+  triggerScale(btn);
+  showLocBadge(btn, zone);
+
   refreshCounts(); refreshScoreboard(); refreshQBars();
 }
 
@@ -731,388 +526,258 @@ function undoLast() {
   if (eventLog.length === 0) { showToast('Nothing to undo'); return; }
   const last = eventLog.pop();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog));
-  showToast(`↩ Undid: ${last.kpi} @ ${last.time}`);
+  showToast(`↩ Undid: ${last.kpi} [${last.location}] @ ${last.time}`);
   refreshCounts(); refreshScoreboard(); refreshQBars();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CLOCK
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// CLOCK ADJUST  ±30 seconds
-// Shifts the relevant half's start time so the running clock moves forward or
-// back by the requested amount. Works while live OR paused.
-// ─────────────────────────────────────────────────────────────────────────────
-function adjustClock(deltaSecs) {
-  const active = state.gameFlow === 'first_half' || state.gameFlow === 'second_half';
-  const paused = state.gameFlow === 'half_time';  // half_time clock is frozen at firstHalfEnd
-  if (!active && !paused) return;
-
-  const deltaMs = deltaSecs * 1000;
-
-  if (state.gameFlow === 'first_half') {
-    // Shift start earlier (deltaMs<0) to add time, or later (deltaMs>0) to subtract
-    state.firstHalfStart -= deltaMs;
-    // Don't let clock go below 0
-    const secs = getMatchSeconds();
-    if (secs < 0) state.firstHalfStart += deltaMs; // revert if it would go negative
-
-  } else if (state.gameFlow === 'half_time') {
-    // Adjust the frozen first-half end point
-    state.firstHalfEnd = (state.firstHalfEnd || Date.now()) + deltaMs;
-    const secs = getMatchSeconds();
-    if (secs < 0) state.firstHalfEnd -= deltaMs;
-
-  } else if (state.gameFlow === 'second_half') {
-    state.secondHalfStart -= deltaMs;
-    const secs = getMatchSeconds();
-    if (secs < H_START) state.secondHalfStart += deltaMs;
-  }
-
-  saveState();
-  refreshClockDisplay();
-  refreshQBars();
-  const dir = deltaSecs > 0 ? `+${deltaSecs}s` : `${deltaSecs}s`;
-  showToast(`Clock adjusted ${dir} → ${document.getElementById('match-clock').textContent}`);
+// ─── LOCATION BADGE ───────────────────────────────────────────────────────────
+function showLocBadge(btn, zone) {
+  const badge = btn.querySelector('.loc-badge');
+  const icons = { Left:'◄ L', Centre:'● C', Right:'R ►' };
+  badge.textContent = icons[zone];
+  badge.classList.add('show');
+  setTimeout(() => badge.classList.remove('show'), 800);
 }
 
-function refreshClockDisplay() {
-  const clockEl  = document.getElementById('match-clock');
-  const statusEl = document.getElementById('game-status');
-  const qlEl     = document.getElementById('quarter-label');
-  const isPaused = state.pausedAt !== null;
+// ─── TIMING ──────────────────────────────────────────────────────────────────
+function getMatchSeconds(atMs) {
+  const now = atMs !== undefined ? atMs : Date.now();
+  if (state.gameFlow === 'pre') return 0;
+  let fhEnd = state.firstHalfEnd || now;
+  if (state.gameFlow === 'first_half' && state.pausedAt) fhEnd = state.pausedAt;
+  const fhSecs = state.firstHalfStart ? Math.max(0, Math.floor((fhEnd - state.firstHalfStart - state.firstHalfPausedMs)/1000)) : 0;
+  if (state.gameFlow === 'first_half' || state.gameFlow === 'half_time') return fhSecs;
+  let shEnd = state.secondHalfEnd || now;
+  if (state.gameFlow === 'second_half' && state.pausedAt) shEnd = state.pausedAt;
+  const shSecs = state.secondHalfStart ? Math.max(0, Math.floor((shEnd - state.secondHalfStart - state.secondHalfPausedMs)/1000)) : 0;
+  return H_START + shSecs;
+}
+function getQuarterFromSeconds(s) { return s<Q1_Q2?1:s<H_START?2:s<Q3_Q4?3:4; }
 
-  // Enable/disable adj buttons
-  const canAdj = state.gameFlow === 'first_half' || state.gameFlow === 'second_half' || state.gameFlow === 'half_time';
-  document.getElementById('clock-minus').classList.toggle('disabled', !canAdj);
-  document.getElementById('clock-plus').classList.toggle('disabled', !canAdj);
+// ─── GAME FLOW ────────────────────────────────────────────────────────────────
+function advanceGameFlow() {
+  const map = { pre:doStartGame, first_half:doEndFirstHalf, half_time:doStartSecondHalf, second_half:confirmEndGame, ended:()=>showToast('Full Time — long-press ▶ to start a new game') };
+  (map[state.gameFlow]||(() =>{}))();
+}
+function doStartGame() { Object.assign(state,{gameFlow:'first_half',firstHalfStart:Date.now(),firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null}); saveState();refreshAll();showToast('🏁 Kick off — 1st Half'); }
+function doEndFirstHalf() { if(state.pausedAt){state.firstHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;} state.gameFlow='half_time';state.firstHalfEnd=Date.now();saveState();refreshAll();showToast('⏸ Half Time'); }
+function doStartSecondHalf() { Object.assign(state,{gameFlow:'second_half',secondHalfStart:Date.now(),secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null});saveState();refreshAll();showToast('▶ 2nd Half'); }
+function doEndGame() { if(state.pausedAt){state.secondHalfPausedMs+=Date.now()-state.pausedAt;state.pausedAt=null;} state.gameFlow='ended';state.secondHalfEnd=Date.now();saveState();document.getElementById('game-over-banner').classList.add('visible');refreshAll();showToast('⏹ Full Time'); }
+function togglePause() {
+  if (state.gameFlow!=='first_half'&&state.gameFlow!=='second_half'){showToast('Pause only during active half');return;}
+  if (state.pausedAt!==null){const dur=Date.now()-state.pausedAt;if(state.gameFlow==='first_half')state.firstHalfPausedMs+=dur;else state.secondHalfPausedMs+=dur;state.pausedAt=null;saveState();refreshAll();showToast('▶ Resumed');}
+  else{state.pausedAt=Date.now();saveState();refreshAll();showToast('⏸ Game paused');}
+}
+function confirmEndGame(){showConfirm('⏹ End Game','Mark match as finished?',doEndGame,true);}
 
-  if (state.gameFlow === 'pre') {
-    clockEl.textContent = '00:00'; clockEl.classList.remove('paused');
-    statusEl.textContent = 'Long-press Flow to reset'; qlEl.textContent = 'Pre-Match';
-    updateQtrPills(0); return;
-  }
+// ─── LONG PRESS ───────────────────────────────────────────────────────────────
+let lpTimer=null;
+function setupFlowLongPress(){
+  const btn=document.getElementById('flow-btn');
+  const start=()=>{btn.classList.add('long-pressing');lpTimer=setTimeout(()=>{btn.classList.remove('long-pressing');confirmNewGame();},800);};
+  const cancel=()=>{clearTimeout(lpTimer);btn.classList.remove('long-pressing');};
+  btn.addEventListener('touchstart',start,{passive:true});btn.addEventListener('touchend',cancel,{passive:true});btn.addEventListener('touchcancel',cancel,{passive:true});
+  btn.addEventListener('mousedown',start);btn.addEventListener('mouseup',cancel);btn.addEventListener('mouseleave',cancel);
+}
+function confirmNewGame(){showConfirm('⊕ New Game','Clear all match data and start fresh?',doNewGame,false);}
+function doNewGame(){eventLog=[];state={gameFlow:'pre',firstHalfStart:null,firstHalfEnd:null,firstHalfPausedMs:0,secondHalfStart:null,secondHalfEnd:null,secondHalfPausedMs:0,pausedAt:null};localStorage.setItem(STORAGE_KEY,JSON.stringify(eventLog));saveState();document.getElementById('game-over-banner').classList.remove('visible');refreshAll();showToast('New game ready — tap ▶ Start Game');}
 
-  const secs = getMatchSeconds();
-  const m = Math.floor(secs / 60).toString().padStart(2,'0');
-  const s = (secs % 60).toString().padStart(2,'0');
-  clockEl.textContent = `${m}:${s}`;
+// ─── CONFIRM ──────────────────────────────────────────────────────────────────
+function showConfirm(title,msg,action,isPositive){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-msg').textContent=msg;document.getElementById('confirm-yes').className=isPositive?'positive':'';pendingAction=action;document.getElementById('confirm-overlay').classList.add('visible');}
+function confirmAction(){closeConfirm();if(pendingAction){pendingAction();pendingAction=null;}}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('visible');}
 
-  if (state.gameFlow === 'half_time') {
-    clockEl.classList.add('paused'); statusEl.textContent = 'Half Time'; qlEl.textContent = 'Half Time';
-    updateQtrPills(secs); return;
-  }
-  if (state.gameFlow === 'ended') {
-    clockEl.classList.remove('paused'); statusEl.textContent = 'Full Time'; qlEl.textContent = 'Full Time';
-    updateQtrPills(secs); return;
-  }
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+function adjustClock(deltaSecs){
+  const canAdj=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';
+  if(!canAdj)return;
+  const dMs=deltaSecs*1000;
+  if(state.gameFlow==='first_half'){state.firstHalfStart-=dMs;if(getMatchSeconds()<0)state.firstHalfStart+=dMs;}
+  else if(state.gameFlow==='half_time'){state.firstHalfEnd=(state.firstHalfEnd||Date.now())+dMs;if(getMatchSeconds()<0)state.firstHalfEnd-=dMs;}
+  else{state.secondHalfStart-=dMs;if(getMatchSeconds()<H_START)state.secondHalfStart+=dMs;}
+  saveState();refreshClockDisplay();refreshQBars();
+  showToast(`Clock ${deltaSecs>0?'+':''}${deltaSecs}s → ${document.getElementById('match-clock').textContent}`);
+}
 
-  if (isPaused) { clockEl.classList.add('paused'); statusEl.textContent = 'Paused'; }
-  else          { clockEl.classList.remove('paused'); statusEl.textContent = 'Live'; }
-  qlEl.textContent = `Quarter ${getQuarterFromSeconds(secs)}`;
+function refreshClockDisplay(){
+  const clk=document.getElementById('match-clock'),st=document.getElementById('game-status'),ql=document.getElementById('quarter-label');
+  const canAdj=state.gameFlow==='first_half'||state.gameFlow==='second_half'||state.gameFlow==='half_time';
+  document.getElementById('clock-minus').classList.toggle('disabled',!canAdj);
+  document.getElementById('clock-plus').classList.toggle('disabled',!canAdj);
+  if(state.gameFlow==='pre'){clk.textContent='00:00';clk.classList.remove('paused');st.textContent='Long-press Flow to reset';ql.textContent='Pre-Match';updateQtrPills(0);return;}
+  const secs=getMatchSeconds();
+  clk.textContent=`${Math.floor(secs/60).toString().padStart(2,'0')}:${(secs%60).toString().padStart(2,'0')}`;
+  if(state.gameFlow==='half_time'){clk.classList.add('paused');st.textContent='Half Time';ql.textContent='Half Time';updateQtrPills(secs);return;}
+  if(state.gameFlow==='ended'){clk.classList.remove('paused');st.textContent='Full Time';ql.textContent='Full Time';updateQtrPills(secs);return;}
+  state.pausedAt?clk.classList.add('paused'):clk.classList.remove('paused');
+  st.textContent=state.pausedAt?'Paused':'Live';
+  ql.textContent=`Quarter ${getQuarterFromSeconds(secs)}`;
   updateQtrPills(secs);
 }
 
-function updateQtrPills(secs) {
-  const isPre = state.gameFlow === 'pre';
-  const curQ  = isPre ? 0 : getQuarterFromSeconds(secs);
-
-  for (let q = 1; q <= 4; q++) {
-    const pill = document.querySelector(`.qtr-pill[data-q="${q}"]`);
-    const scoreEl = document.getElementById(`q${q}-score`);
-    pill.classList.toggle('active', q === curQ && !isPre);
-    pill.classList.toggle('done',   q < curQ);
-
-    // Cumulative score up to this quarter
-    const gf = eventLog.filter(e => e.kpi === 'Goal – Us' && e.quarter === q).length;
-    const pf = eventLog.filter(e => (e.kpi === 'Point – Play (Us)' || e.kpi === 'Point – Free (Us)') && e.quarter === q).length;
-    const ga = eventLog.filter(e => e.kpi === 'Goal – Them' && e.quarter === q).length;
-    const pa = eventLog.filter(e => e.kpi === 'Point – Them' && e.quarter === q).length;
-    const u = gf*3+pf, t = ga*3+pa;
-    scoreEl.textContent = (u > 0 || t > 0) ? `${u}-${t}` : '';
+function updateQtrPills(secs){
+  const isPre=state.gameFlow==='pre', curQ=isPre?0:getQuarterFromSeconds(secs);
+  for(let q=1;q<=4;q++){
+    const pill=document.querySelector(`.qtr-pill[data-q="${q}"]`),scoreEl=document.getElementById(`q${q}-score`);
+    pill.classList.toggle('active',q===curQ&&!isPre);pill.classList.toggle('done',q<curQ);
+    const gf=eventLog.filter(e=>e.kpi==='Goal – Us'&&e.quarter===q).length;
+    const pf=eventLog.filter(e=>(e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)')&&e.quarter===q).length;
+    const ga=eventLog.filter(e=>e.kpi==='Goal – Them'&&e.quarter===q).length;
+    const pa=eventLog.filter(e=>(e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)')&&e.quarter===q).length;
+    const u=gf*3+pf,t=ga*3+pa;
+    scoreEl.textContent=(u>0||t>0)?`${u}–${t}`:'';
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Q-BARS on each KPI button
-// ─────────────────────────────────────────────────────────────────────────────
-function refreshQBars() {
-  const counts = {};
-  KPI_LIST.forEach(k => { counts[k] = {1:0,2:0,3:0,4:0}; });
-  eventLog.forEach(e => { if (counts[e.kpi]) counts[e.kpi][e.quarter]++; });
-
-  const curQ = state.gameFlow === 'pre' ? 0 : getQuarterFromSeconds(getMatchSeconds());
-
-  document.querySelectorAll('.kpi-btn').forEach(btn => {
-    const kpi = btn.dataset.kpi;
-    const c = counts[kpi];
-    const maxVal = Math.max(c[1], c[2], c[3], c[4], 1);
-    btn.querySelectorAll('.qbar-seg').forEach(seg => {
-      const q = parseInt(seg.dataset.q);
-      const hasData = c[q] > 0;
-      seg.classList.toggle('lit', hasData);
-      seg.classList.toggle('cur', q === curQ);
-      seg.style.opacity = hasData ? String(0.35 + (c[q] / maxVal) * 0.65) : '';
+// ─── Q-BARS ───────────────────────────────────────────────────────────────────
+function refreshQBars(){
+  const counts={};KPI_LIST.forEach(k=>{counts[k]={1:0,2:0,3:0,4:0};});
+  eventLog.forEach(e=>{if(counts[e.kpi])counts[e.kpi][e.quarter]++;});
+  const curQ=state.gameFlow==='pre'?0:getQuarterFromSeconds(getMatchSeconds());
+  document.querySelectorAll('.kpi-btn:not(.blank)').forEach(btn=>{
+    const c=counts[btn.dataset.kpi];if(!c)return;
+    const maxVal=Math.max(c[1],c[2],c[3],c[4],1);
+    btn.querySelectorAll('.qbar-seg').forEach(seg=>{
+      const q=parseInt(seg.dataset.q);
+      seg.classList.toggle('lit',c[q]>0);seg.classList.toggle('cur',q===curQ);
+      seg.style.opacity=c[q]>0?String(0.35+(c[q]/maxVal)*0.65):'';
     });
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REFRESH ALL
-// ─────────────────────────────────────────────────────────────────────────────
-function refreshAll() {
-  refreshCounts(); refreshScoreboard(); refreshFlowBtn(); refreshPauseBtn();
-  refreshClockDisplay(); refreshQBars();
+// ─── REFRESH ──────────────────────────────────────────────────────────────────
+function refreshAll(){refreshCounts();refreshScoreboard();refreshFlowBtn();refreshPauseBtn();refreshClockDisplay();refreshQBars();}
+
+function refreshFlowBtn(){
+  const btn=document.getElementById('flow-btn');
+  const map={pre:{label:'▶ Start Game',bg:'rgba(0,230,118,0.15)',bc:'rgba(0,230,118,0.5)',c:'var(--green)'},first_half:{label:'⏸ End 1st Half',bg:'rgba(255,171,64,0.15)',bc:'rgba(255,171,64,0.5)',c:'var(--amber)'},half_time:{label:'▶ 2nd Half',bg:'rgba(0,212,255,0.15)',bc:'rgba(0,212,255,0.5)',c:'var(--accent)'},second_half:{label:'⏹ End Game',bg:'rgba(255,61,90,0.15)',bc:'rgba(255,61,90,0.5)',c:'var(--red)'},ended:{label:'— Full Time',bg:'rgba(107,122,153,0.10)',bc:'rgba(107,122,153,0.3)',c:'var(--text-dim)'}};
+  const s=map[state.gameFlow]||map.pre;btn.textContent=s.label;btn.style.background=s.bg;btn.style.borderColor=s.bc;btn.style.color=s.c;
+}
+function refreshPauseBtn(){
+  const btn=document.getElementById('pause-btn');
+  const can=state.gameFlow==='first_half'||state.gameFlow==='second_half';
+  if(!can){btn.className='action-btn disabled-btn';btn.textContent='⏸ Pause';return;}
+  if(state.pausedAt!==null){btn.className='action-btn resuming';btn.textContent='▶ Resume';}
+  else{btn.className='action-btn';btn.style.background='rgba(255,171,64,0.12)';btn.style.borderColor='rgba(255,171,64,0.4)';btn.style.color='var(--amber)';btn.textContent='⏸ Pause';}
+}
+function refreshCounts(){
+  const counts={};KPI_LIST.forEach(k=>counts[k]=0);eventLog.forEach(e=>{if(counts[e.kpi]!==undefined)counts[e.kpi]++;});
+  document.querySelectorAll('.kpi-btn:not(.blank)').forEach(btn=>{btn.querySelector('.kpi-count').textContent=counts[btn.dataset.kpi]??0;});
+}
+function refreshScoreboard(){
+  const gf=eventLog.filter(e=>e.kpi==='Goal – Us').length,pf=eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
+  const ga=eventLog.filter(e=>e.kpi==='Goal – Them').length,pa=eventLog.filter(e=>e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)').length;
+  const usEl=document.getElementById('score-us'),usPts=document.getElementById('score-us-pts');
+  const themEl=document.getElementById('score-them'),themPts=document.getElementById('score-them-pts');
+  const nUs=`${gf}-${pf.toString().padStart(2,'0')}`,nThem=`${ga}-${pa.toString().padStart(2,'0')}`;
+  if(usEl.textContent!==nUs){usEl.textContent=nUs;flashEl(usEl);}
+  if(themEl.textContent!==nThem){themEl.textContent=nThem;flashEl(themEl);}
+  usPts.textContent=`(${gf*3+pf})`;themPts.textContent=`(${ga*3+pa})`;
+}
+function flashEl(el){el.classList.add('flash-score');setTimeout(()=>el.classList.remove('flash-score'),400);}
+
+// ─── ANIMATIONS ───────────────────────────────────────────────────────────────
+function triggerFlash(btn){btn.classList.add('flashing');setTimeout(()=>btn.classList.remove('flashing'),200);}
+function triggerRipple(btn,evt){
+  const rect=btn.getBoundingClientRect();
+  const cx=evt.clientX!==undefined?evt.clientX:(evt.touches?evt.touches[0].clientX:rect.left+rect.width/2);
+  const cy=evt.clientY!==undefined?evt.clientY:(evt.touches?evt.touches[0].clientY:rect.top+rect.height/2);
+  const size=Math.max(rect.width,rect.height);
+  const r=document.createElement('span');r.className='ripple';
+  r.style.cssText=`width:${size}px;height:${size}px;left:${cx-rect.left-size/2}px;top:${cy-rect.top-size/2}px`;
+  btn.appendChild(r);setTimeout(()=>r.remove(),500);
+}
+function triggerScale(btn){btn.style.transform='scale(0.90)';setTimeout(()=>{btn.style.transform='scale(1.04)';},100);setTimeout(()=>{btn.style.transform='';},220);if(navigator.vibrate)navigator.vibrate(18);}
+
+// ─── STATS MODAL ──────────────────────────────────────────────────────────────
+function switchTab(tab){
+  document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.toggle('active',t.id===`tab-${tab}`));
 }
 
-function refreshFlowBtn() {
-  const btn = document.getElementById('flow-btn');
-  const map = {
-    pre:         { label: '▶ Start Game',   bg: 'rgba(0,230,118,0.15)',   bc: 'rgba(0,230,118,0.5)',   c: 'var(--green)'    },
-    first_half:  { label: '⏸ End 1st Half', bg: 'rgba(255,171,64,0.15)',  bc: 'rgba(255,171,64,0.5)',  c: 'var(--amber)'    },
-    half_time:   { label: '▶ 2nd Half',     bg: 'rgba(0,212,255,0.15)',   bc: 'rgba(0,212,255,0.5)',   c: 'var(--accent)'   },
-    second_half: { label: '⏹ End Game',     bg: 'rgba(255,61,90,0.15)',   bc: 'rgba(255,61,90,0.5)',   c: 'var(--red)'      },
-    ended:       { label: '— Full Time',    bg: 'rgba(107,122,153,0.10)', bc: 'rgba(107,122,153,0.3)', c: 'var(--text-dim)' },
-  };
-  const s = map[state.gameFlow] || map.pre;
-  btn.textContent = s.label; btn.style.background = s.bg; btn.style.borderColor = s.bc; btn.style.color = s.c;
-}
+function showDisplay(){
+  const raw={};KPI_LIST.forEach(k=>{raw[k]={1:0,2:0,3:0,4:0};});
+  eventLog.forEach(e=>{if(raw[e.kpi])raw[e.kpi][e.quarter]++;});
+  const c=(kpi,q)=>raw[kpi]?raw[kpi][q]:0;
+  const pct=(n,d)=>d===0?'--':Math.round((n/d)*100)+'%';
+  const maxQ=(()=>{if(state.gameFlow==='pre')return 0;if(state.gameFlow==='ended')return 4;if(state.gameFlow==='half_time')return 2;return getQuarterFromSeconds(getMatchSeconds());})();
+  const cell=(v,bad,q,isTotal=false)=>`<td class="${isTotal?'total-col':q<=maxQ?(bad?'bad':'good'):''}">${v}</td>`;
 
-function refreshPauseBtn() {
-  const btn = document.getElementById('pause-btn');
-  const canPause = state.gameFlow === 'first_half' || state.gameFlow === 'second_half';
-  if (!canPause) { btn.className = 'action-btn disabled-btn'; btn.textContent = '⏸ Pause'; return; }
-  if (state.pausedAt !== null) { btn.className = 'action-btn resuming'; btn.textContent = '▶ Resume'; }
-  else {
-    btn.className = 'action-btn';
-    btn.style.background = 'rgba(255,171,64,0.12)'; btn.style.borderColor = 'rgba(255,171,64,0.4)'; btn.style.color = 'var(--amber)';
-    btn.textContent = '⏸ Pause';
-  }
-}
-
-function refreshCounts() {
-  const counts = {};
-  KPI_LIST.forEach(k => counts[k] = 0);
-  eventLog.forEach(e => { if (counts[e.kpi] !== undefined) counts[e.kpi]++; });
-  document.querySelectorAll('.kpi-btn').forEach(btn => {
-    btn.querySelector('.kpi-count').textContent = counts[btn.dataset.kpi] ?? 0;
-  });
-}
-
-function refreshScoreboard() {
-  const gf = eventLog.filter(e => e.kpi === 'Goal – Us').length;
-  const pf = eventLog.filter(e => e.kpi === 'Point – Play (Us)' || e.kpi === 'Point – Free (Us)').length;
-  const ga = eventLog.filter(e => e.kpi === 'Goal – Them').length;
-  const pa = eventLog.filter(e => e.kpi === 'Point – Them').length;
-
-  const usEl = document.getElementById('score-us');
-  const usPts = document.getElementById('score-us-pts');
-  const themEl = document.getElementById('score-them');
-  const themPts = document.getElementById('score-them-pts');
-
-  const newUs = `${gf}-${pf.toString().padStart(2,'0')}`;
-  const newThem = `${ga}-${pa.toString().padStart(2,'0')}`;
-  if (usEl.textContent !== newUs)     { usEl.textContent = newUs;     flashEl(usEl); }
-  if (themEl.textContent !== newThem) { themEl.textContent = newThem; flashEl(themEl); }
-  usPts.textContent   = `(${gf*3+pf})`;
-  themPts.textContent = `(${ga*3+pa})`;
-}
-
-function flashEl(el) { el.classList.add('flash-score'); setTimeout(() => el.classList.remove('flash-score'), 400); }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ANIMATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-function triggerFlash(btn) { btn.classList.add('flashing'); setTimeout(() => btn.classList.remove('flashing'), 200); }
-
-function triggerRipple(btn, evt) {
-  const rect = btn.getBoundingClientRect();
-  const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
-  const y = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
-  const size = Math.max(rect.width, rect.height);
-  const r = document.createElement('span');
-  r.className = 'ripple';
-  r.style.cssText = `width:${size}px;height:${size}px;left:${x-size/2}px;top:${y-size/2}px`;
-  btn.appendChild(r);
-  setTimeout(() => r.remove(), 500);
-}
-
-function triggerScale(btn) {
-  btn.style.transform = 'scale(0.90)';
-  setTimeout(() => { btn.style.transform = 'scale(1.04)'; }, 100);
-  setTimeout(() => { btn.style.transform = ''; }, 220);
-  if (navigator.vibrate) navigator.vibrate(18);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STATS MODAL
-// ─────────────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-}
-
-function showDisplay() {
-  const raw = {};
-  KPI_LIST.forEach(k => { raw[k] = {1:0,2:0,3:0,4:0}; });
-  eventLog.forEach(e => { if (raw[e.kpi]) raw[e.kpi][e.quarter]++; });
-  const c   = (kpi, q) => (raw[kpi] ? raw[kpi][q] : 0);
-  const pct = (num, den) => den === 0 ? '--' : Math.round((num / den) * 100) + '%';
-
-  const maxPlayedQ = (() => {
-    if (state.gameFlow === 'pre')      return 0;
-    if (state.gameFlow === 'ended')    return 4;
-    if (state.gameFlow === 'half_time') return 2;
-    return getQuarterFromSeconds(getMatchSeconds());
-  })();
-
-  function cell(display, isBad, q, isTotal = false) {
-    let cls = isTotal ? 'total-col' : (q <= maxPlayedQ ? (isBad ? 'bad' : 'good') : '');
-    return `<td class="${cls}">${display}</td>`;
-  }
-
-  // KPI Dashboard rows
-  const rows = [
-    { label: 'Our Scores',             target: '≥5/qtr',
-      qval: q => c('Point – Play (Us)',q) + c('Point – Free (Us)',q) + c('Goal – Us',q),
-      total: () => [1,2,3,4].reduce((s,q) => s + c('Point – Play (Us)',q) + c('Point – Free (Us)',q) + c('Goal – Us',q), 0),
-      bad: v => v < 5 },
-    { label: 'Their Scores',           target: '≤4/qtr',
-      qval: q => c('Point – Them',q) + c('Goal – Them',q),
-      total: () => [1,2,3,4].reduce((s,q) => s + c('Point – Them',q) + c('Goal – Them',q), 0),
-      bad: v => v > 4 },
-    { label: 'Shot Efficiency (Play)', target: '≥70%',  isPct: true,
-      qval: q => ({ n: c('Point – Play (Us)',q), d: c('Point – Play (Us)',q) + c('Shot Miss – Play',q) }),
-      bad: (n,d) => d > 0 && n/d < 0.70 },
-    { label: 'Shot Efficiency (Free)', target: '≥80%',  isPct: true,
-      qval: q => ({ n: c('Point – Free (Us)',q), d: c('Point – Free (Us)',q) + c('Shot Miss – Free',q) }),
-      bad: (n,d) => d > 0 && n/d < 0.80 },
-    { label: 'Total Shot Efficiency',  target: '≥75%',  isPct: true,
-      qval: q => { const n = c('Point – Play (Us)',q)+c('Point – Free (Us)',q); const d = n+c('Shot Miss – Play',q)+c('Shot Miss – Free',q); return {n,d}; },
-      bad: (n,d) => d > 0 && n/d < 0.75 },
-    { label: 'Forced Turnovers',       target: '≥2/qtr',
-      qval: q => c('Turnover – Forced',q),
-      total: () => [1,2,3,4].reduce((s,q) => s + c('Turnover – Forced',q), 0),
-      bad: v => v < 2 },
-    { label: 'Puckout Retention (Us)', target: '≥70%',  isPct: true,
-      qval: q => ({ n: c('PO Win – Us',q), d: c('PO Win – Us',q)+c('PO Lost – Us',q) }),
-      bad: (n,d) => d > 0 && n/d < 0.70 },
-    { label: 'Puckout Success (Opp)',  target: '≤50%',  isPct: true,
-      qval: q => ({ n: c('PO Win – Them',q), d: c('PO Win – Them',q)+c('PO Lost – Them',q) }),
-      bad: (n,d) => d > 0 && n/d > 0.50 },
-    { label: 'Breaking Ball Success',  target: '≥51%',  isPct: true,
-      qval: q => ({ n: c('Contest Win',q), d: c('Contest Win',q)+c('Contest Lost',q) }),
-      bad: (n,d) => d > 0 && n/d < 0.51 },
-    { label: 'UnContested Loss Ratio', target: '≤49%',  isPct: true,
-      qval: q => ({ n: c('Turnover – Us',q), d: c('Turnover – Us',q)+c('Turnover – Them',q) }),
-      bad: (n,d) => d > 0 && n/d > 0.49 },
-    { label: 'Run thru 65',            target: '≥7 total',
-      qval: q => c('Run thru 65',q),
-      total: () => [1,2,3,4].reduce((s,q) => s + c('Run thru 65',q), 0),
-      bad: v => v < 7 },
+  const rows=[
+    {label:'Our Scores',target:'≥5/qtr',qval:q=>c('Point – Play (Us)',q)+c('Point – Free (Us)',q)+c('Goal – Us',q),bad:v=>v<5},
+    {label:'Shot Eff – Play (Us)',target:'≥70%',isPct:true,qval:q=>({n:c('Point – Play (Us)',q),d:c('Point – Play (Us)',q)+c('Miss – Play (Us)',q)}),bad:(n,d)=>d>0&&n/d<0.70},
+    {label:'Shot Eff – Free (Us)',target:'≥80%',isPct:true,qval:q=>({n:c('Point – Free (Us)',q),d:c('Point – Free (Us)',q)+c('Miss – Free (Us)',q)}),bad:(n,d)=>d>0&&n/d<0.80},
+    {label:'Total Shot Eff (Us)',target:'≥75%',isPct:true,qval:q=>{const n=c('Point – Play (Us)',q)+c('Point – Free (Us)',q);const d=n+c('Miss – Play (Us)',q)+c('Miss – Free (Us)',q);return{n,d};},bad:(n,d)=>d>0&&n/d<0.75},
+    {label:'Their Scores',target:'≤4/qtr',qval:q=>c('Point – Play (Them)',q)+c('Point – Free (Them)',q)+c('Goal – Them',q),bad:v=>v>4},
+    {label:'Shot Eff – Play (Them)',target:'≤60%',isPct:true,qval:q=>({n:c('Point – Play (Them)',q),d:c('Point – Play (Them)',q)+c('Miss – Play (Them)',q)}),bad:(n,d)=>d>0&&n/d>0.60},
+    {label:'Shot Eff – Free (Them)',target:'≤70%',isPct:true,qval:q=>({n:c('Point – Free (Them)',q),d:c('Point – Free (Them)',q)+c('Miss – Free (Them)',q)}),bad:(n,d)=>d>0&&n/d>0.70},
+    {label:'Our PO Retention',target:'≥70%',isPct:true,qval:q=>({n:c('Our PO – We Win',q),d:c('Our PO – We Win',q)+c('Our PO – We Lose',q)}),bad:(n,d)=>d>0&&n/d<0.70},
+    {label:'Their PO – We Win',target:'≥50%',isPct:true,qval:q=>({n:c('Their PO – We Win',q),d:c('Their PO – We Win',q)+c('Their PO – We Lose',q)}),bad:(n,d)=>d>0&&n/d<0.50},
+    {label:'T/O Forced (Us)',target:'≥2/qtr',qval:q=>c('T/O Forced (Us)',q),bad:v=>v<2},
+    {label:'T/O Forced (Them)',target:'≥2/qtr',qval:q=>c('T/O Forced (Them)',q),bad:v=>v<2},
+    {label:'Contested Ball Win%',target:'≥51%',isPct:true,qval:q=>({n:c('Contested Win',q),d:c('Contested Win',q)+c('Contested Loss',q)}),bad:(n,d)=>d>0&&n/d<0.51},
+    {label:'Unforced T/O Ratio',target:'≤49%',isPct:true,qval:q=>({n:c('Unforced Loss',q),d:c('Unforced Win',q)+c('Unforced Loss',q)}),bad:(n,d)=>d>0&&n/d>0.49},
+    {label:'Free Win%',target:'≥60%',isPct:true,qval:q=>({n:c('Free Win',q),d:c('Free Win',q)+c('Free Lost',q)}),bad:(n,d)=>d>0&&n/d<0.60},
+    {label:'Run thru 65',target:'≥7 total',qval:q=>c('Run thru 65',q),bad:v=>v<7},
+    {label:'Cards for Us',target:'0',qval:q=>c('Card for Us',q),bad:v=>v>0},
   ];
 
-  const tbody = document.getElementById('stats-tbody');
-  tbody.innerHTML = '';
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    let html = `<td>${row.label}</td><td class="target-col">${row.target}</td>`;
-    if (row.isPct) {
-      let tN = 0, tD = 0;
-      [1,2,3,4].forEach(q => { const {n,d} = row.qval(q); tN+=n; tD+=d; html += cell(pct(n,d), row.bad(n,d), q); });
-      html += `<td class="total-col">${pct(tN,tD)}</td>`;
-    } else {
-      let total = 0;
-      [1,2,3,4].forEach(q => { const v = row.qval(q); total+=v; html += cell(v, row.bad(v), q); });
-      html += `<td class="total-col">${row.total ? row.total() : total}</td>`;
-    }
-    tr.innerHTML = html;
-    tbody.appendChild(tr);
+  const tbody=document.getElementById('stats-tbody');tbody.innerHTML='';
+  rows.forEach(row=>{
+    const tr=document.createElement('tr');
+    let html=`<td>${row.label}</td><td class="target-col">${row.target}</td>`;
+    if(row.isPct){let tN=0,tD=0;[1,2,3,4].forEach(q=>{const{n,d}=row.qval(q);tN+=n;tD+=d;html+=cell(pct(n,d),row.bad(n,d),q);});html+=`<td class="total-col">${pct(tN,tD)}</td>`;}
+    else{let total=0;[1,2,3,4].forEach(q=>{const v=row.qval(q);total+=v;html+=cell(v,row.bad(v),q);});html+=`<td class="total-col">${total}</td>`;}
+    tr.innerHTML=html;tbody.appendChild(tr);
   });
 
-  // Raw Counts tab
-  const rawTbody = document.getElementById('raw-tbody');
-  rawTbody.innerHTML = '';
-  KPI_GROUPS.forEach(group => {
-    const htr = document.createElement('tr');
-    htr.className = 'cat-header';
-    htr.innerHTML = `<td colspan="6">${group.label}</td>`;
-    rawTbody.appendChild(htr);
-    group.kpis.forEach(kpi => {
-      const total = [1,2,3,4].reduce((s,q) => s+c(kpi,q), 0);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${kpi}</td><td>${c(kpi,1)}</td><td>${c(kpi,2)}</td><td>${c(kpi,3)}</td><td>${c(kpi,4)}</td><td class="total-col">${total}</td>`;
+  const rawTbody=document.getElementById('raw-tbody');rawTbody.innerHTML='';
+  KPI_GROUPS.forEach(group=>{
+    const htr=document.createElement('tr');htr.className='cat-header';htr.innerHTML=`<td colspan="6">${group.label}</td>`;rawTbody.appendChild(htr);
+    group.kpis.forEach(kpi=>{
+      const total=[1,2,3,4].reduce((s,q)=>s+c(kpi,q),0);
+      const tr=document.createElement('tr');tr.innerHTML=`<td>${kpi}</td><td>${c(kpi,1)}</td><td>${c(kpi,2)}</td><td>${c(kpi,3)}</td><td>${c(kpi,4)}</td><td class="total-col">${total}</td>`;
       rawTbody.appendChild(tr);
     });
   });
 
-  const gf = eventLog.filter(e=>e.kpi==='Goal – Us').length;
-  const pf = eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
-  const ga = eventLog.filter(e=>e.kpi==='Goal – Them').length;
-  const pa = eventLog.filter(e=>e.kpi==='Point – Them').length;
-  document.getElementById('modal-score-summary').textContent =
-    `Us ${gf}-${pf.toString().padStart(2,'0')} (${gf*3+pf})  vs  Them ${ga}-${pa.toString().padStart(2,'0')} (${ga*3+pa})`;
-
+  const gf=eventLog.filter(e=>e.kpi==='Goal – Us').length,pf=eventLog.filter(e=>e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)').length;
+  const ga=eventLog.filter(e=>e.kpi==='Goal – Them').length,pa=eventLog.filter(e=>e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)').length;
+  document.getElementById('modal-score-summary').textContent=`Us ${gf}-${pf.toString().padStart(2,'0')} (${gf*3+pf})  vs  Them ${ga}-${pa.toString().padStart(2,'0')} (${ga*3+pa})`;
   document.getElementById('modal-overlay').classList.add('visible');
 }
+function hideDisplay(evt){if(evt&&evt.target!==document.getElementById('modal-overlay'))return;document.getElementById('modal-overlay').classList.remove('visible');}
 
-function hideDisplay(evt) {
-  if (evt && evt.target !== document.getElementById('modal-overlay')) return;
-  document.getElementById('modal-overlay').classList.remove('visible');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CSV EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
-function exportCSV() {
-  if (eventLog.length === 0) { showToast('No events logged yet'); return; }
-  const lines = ['Event,Quarter,MatchTime,Timestamp_ms'];
-  eventLog.forEach(e => lines.push(`"${e.kpi}",${e.quarter},"${e.time}",${e.ts}`));
+// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+function exportCSV(){
+  if(eventLog.length===0){showToast('No events logged yet');return;}
+  // Location is now a first-class column
+  const lines=['Event,Quarter,MatchTime,Location,Timestamp_ms'];
+  eventLog.forEach(e=>lines.push(`"${e.kpi}",${e.quarter},"${e.time}","${e.location||'Centre'}",${e.ts}`));
   lines.push('','KPI Summary','KPI,Qtr1,Qtr2,Qtr3,Qtr4,Total');
-  const data = {};
-  KPI_LIST.forEach(k => { data[k] = {1:0,2:0,3:0,4:0}; });
-  eventLog.forEach(e => { if (data[e.kpi]) data[e.kpi][e.quarter]++; });
-  KPI_LIST.forEach(k => {
-    const t = data[k][1]+data[k][2]+data[k][3]+data[k][4];
-    lines.push(`"${k}",${data[k][1]},${data[k][2]},${data[k][3]},${data[k][4]},${t}`);
+  const data={};KPI_LIST.forEach(k=>{data[k]={1:0,2:0,3:0,4:0};});eventLog.forEach(e=>{if(data[e.kpi])data[e.kpi][e.quarter]++;});
+  KPI_LIST.forEach(k=>{const t=data[k][1]+data[k][2]+data[k][3]+data[k][4];lines.push(`"${k}",${data[k][1]},${data[k][2]},${data[k][3]},${data[k][4]},${t}`);});
+  lines.push('','Location Breakdown','KPI,Left,Centre,Right');
+  KPI_LIST.forEach(k=>{
+    const L=eventLog.filter(e=>e.kpi===k&&e.location==='Left').length;
+    const C=eventLog.filter(e=>e.kpi===k&&(e.location==='Centre'||!e.location)).length;
+    const R=eventLog.filter(e=>e.kpi===k&&e.location==='Right').length;
+    if(L+C+R>0)lines.push(`"${k}",${L},${C},${R}`);
   });
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const fn   = `gaa_stats_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.csv`;
-  const a = document.createElement('a');
-  a.href = url; a.download = fn;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => {
-    if (typeof a.download === 'undefined' || /iPad|iPhone/.test(navigator.userAgent)) showCsvOverlay(url, fn);
-    else { URL.revokeObjectURL(url); showToast('CSV downloaded ✓'); }
-  }, 300);
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const fn=`gaa_stats_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','-')}.csv`;
+  if(navigator.share&&navigator.canShare){const file=new File([blob],fn,{type:'text/csv'});if(navigator.canShare({files:[file]})){navigator.share({files:[file],title:'GAA Stats'}).catch(()=>showCsvOverlay(URL.createObjectURL(blob),fn));return;}}
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>{URL.revokeObjectURL(url);showToast('CSV downloaded ✓');},300);
 }
+let csvBlobUrl=null;
+function showCsvOverlay(url,fn){if(csvBlobUrl)URL.revokeObjectURL(csvBlobUrl);csvBlobUrl=url;const l=document.getElementById('csv-link');l.href=url;l.download=fn;l.textContent=`📄 ${fn}`;document.getElementById('csv-overlay').classList.add('visible');}
+function closeCsvOverlay(){document.getElementById('csv-overlay').classList.remove('visible');if(csvBlobUrl){URL.revokeObjectURL(csvBlobUrl);csvBlobUrl=null;}showToast('CSV ready — use Share → Save to Files');}
 
-let csvBlobUrl = null;
-function showCsvOverlay(url, fn) {
-  if (csvBlobUrl) URL.revokeObjectURL(csvBlobUrl);
-  csvBlobUrl = url;
-  const link = document.getElementById('csv-link');
-  link.href = url; link.download = fn; link.textContent = `📄 ${fn}`;
-  document.getElementById('csv-overlay').classList.add('visible');
-}
-function closeCsvOverlay() {
-  document.getElementById('csv-overlay').classList.remove('visible');
-  if (csvBlobUrl) { URL.revokeObjectURL(csvBlobUrl); csvBlobUrl = null; }
-  showToast('CSV ready — use Share → Save to Files');
-}
+function saveState(){localStorage.setItem(STATE_KEY,JSON.stringify(state));}
 
-function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────────────────────────────────────────
-let toastTimer = null;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-}
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer=null;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2500);}
 
 init();
 </script>
