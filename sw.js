@@ -1,47 +1,75 @@
-// GAA Stats PWA - Service Worker
-// Version bump this string any time you update the app to force cache refresh
-const CACHE_NAME = 'gaa-stats-v4';
+// GAA Stats PWA — Service Worker v8
+// Bump CACHE_NAME any time you update the app to force clients to reload
+const CACHE_NAME = 'gaa-stats-v8';
 
-const ASSETS = [
-  './index.html',
-  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;900&display=swap'
+const PRECACHE = [
+  './index.html'
+  // sw.js itself is never cached by the SW — the browser manages it directly
 ];
 
-// Install: cache all assets
+// ── Install: precache core assets ────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // Cache the main HTML — fonts will cache automatically on first load
-      return cache.addAll(['./index.html']).catch(() => {});
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE))
+      .catch(() => {}) // Don't block install if cache fails
   );
+  // Activate immediately rather than waiting for old SW to die
   self.skipWaiting();
 });
 
-// Activate: clean up old caches
+// ── Activate: purge old caches ───────────────────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE_NAME)
+          .map(k => caches.delete(k))
+      )
     )
   );
+  // Take control of all open tabs immediately
   self.clients.claim();
 });
 
-// Fetch: serve from cache, fall back to network, cache new responses
+// ── Fetch: cache-first for same-origin, network-first for fonts ──────────────
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+
+  // Let analytics / non-GET requests pass straight through
+  if (event.request.method !== 'GET') return;
+
+  // Network-first for Google Fonts (always want latest, fallback to cache)
+  if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (app shell, assets)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
+
       return fetch(event.request).then(response => {
-        // Cache successful GET responses
-        if (event.request.method === 'GET' && response.status === 200) {
+        // Only cache valid same-origin responses
+        if (response.status === 200 && url.origin === self.location.origin) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // If offline and not cached, return offline page for navigation requests
+        // Offline fallback — return cached app shell for navigation requests
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
