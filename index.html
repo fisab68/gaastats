@@ -392,7 +392,7 @@
     </div>
     <div class="tab-content active" id="tab-kpi">
       <table id="stats-table">
-        <thead><tr><th>KPI Metric</th><th>Target</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr></thead>
+        <thead><tr><th>KPI Metric</th><th>Tgt/Qtr</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr></thead>
         <tbody id="stats-tbody"></tbody>
       </table>
     </div>
@@ -707,31 +707,50 @@ function showDisplay(){
   const pct=(n,d)=>d===0?'--':Math.round((n/d)*100)+'%';
   const maxQ=(()=>{if(state.gameFlow==='pre')return 0;if(state.gameFlow==='ended')return 4;if(state.gameFlow==='half_time')return 2;return getQuarterFromSeconds(getMatchSeconds());})();
   const cell=(v,bad,q,isTotal=false)=>`<td class="${isTotal?'total-col':q<=maxQ?(bad?'bad':'good'):''}">${v}</td>`;
-  const rows=[
-    {label:'Our Scores',target:'≥5/qtr',qval:q=>c('Point – Play (Us)',q)+c('Point – Free (Us)',q)+c('Goal – Us',q),bad:v=>v<5},
-    {label:'Shot Eff – Play (Us)',target:'≥70%',isPct:true,qval:q=>({n:c('Point – Play (Us)',q),d:c('Point – Play (Us)',q)+c('Miss – Play (Us)',q)}),bad:(n,d)=>d>0&&n/d<0.70},
-    {label:'Shot Eff – Free (Us)',target:'≥80%',isPct:true,qval:q=>({n:c('Point – Free (Us)',q),d:c('Point – Free (Us)',q)+c('Miss – Free (Us)',q)}),bad:(n,d)=>d>0&&n/d<0.80},
-    {label:'Total Shot Eff (Us)',target:'≥75%',isPct:true,qval:q=>{const n=c('Point – Play (Us)',q)+c('Point – Free (Us)',q);const d=n+c('Miss – Play (Us)',q)+c('Miss – Free (Us)',q);return{n,d};},bad:(n,d)=>d>0&&n/d<0.75},
-    {label:'Their Scores',target:'≤4/qtr',qval:q=>c('Point – Play (Them)',q)+c('Point – Free (Them)',q)+c('Goal – Them',q),bad:v=>v>4},
-    {label:'Shot Eff – Play (Them)',target:'≤60%',isPct:true,qval:q=>({n:c('Point – Play (Them)',q),d:c('Point – Play (Them)',q)+c('Miss – Play (Them)',q)}),bad:(n,d)=>d>0&&n/d>0.60},
-    {label:'Shot Eff – Free (Them)',target:'≤70%',isPct:true,qval:q=>({n:c('Point – Free (Them)',q),d:c('Point – Free (Them)',q)+c('Miss – Free (Them)',q)}),bad:(n,d)=>d>0&&n/d>0.70},
-    {label:'Our PO Retention',target:'≥70%',isPct:true,qval:q=>({n:c('Our PO – We Win',q),d:c('Our PO – We Win',q)+c('Our PO – We Lose',q)}),bad:(n,d)=>d>0&&n/d<0.70},
-    {label:'Their PO – We Win',target:'≥50%',isPct:true,qval:q=>({n:c('Their PO – We Win',q),d:c('Their PO – We Win',q)+c('Their PO – We Lose',q)}),bad:(n,d)=>d>0&&n/d<0.50},
-    {label:'T/O Forced (Us)',target:'≥2/qtr',qval:q=>c('T/O Forced (Us)',q),bad:v=>v<2},
-    {label:'T/O Forced (Them)',target:'≥2/qtr',qval:q=>c('T/O Forced (Them)',q),bad:v=>v<2},
-    {label:'Contested Ball Win%',target:'≥51%',isPct:true,qval:q=>({n:c('Contested Win',q),d:c('Contested Win',q)+c('Contested Loss',q)}),bad:(n,d)=>d>0&&n/d<0.51},
-    {label:'Unforced T/O Ratio',target:'≤49%',isPct:true,qval:q=>({n:c('Unforced Loss',q),d:c('Unforced Win',q)+c('Unforced Loss',q)}),bad:(n,d)=>d>0&&n/d>0.49},
-    {label:'Free Win%',target:'≥60%',isPct:true,qval:q=>({n:c('Free Win',q),d:c('Free Win',q)+c('Free Lost',q)}),bad:(n,d)=>d>0&&n/d<0.60},
-    {label:'Run thru 65',target:'≥7 total',qval:q=>c('Run thru 65',q),bad:v=>v<7},
-    {label:'Cards for Us',target:'0',qval:q=>c('Card for Us',q),bad:v=>v>0},
+  const groups=[
+    {label:'⬢ Execution', rows:[
+      {label:'Our Scores',        target:'5', qval:q=>c('Point – Play (Us)',q)+c('Point – Free (Us)',q)+c('Goal – Us',q),                                                    bad:v=>v<5},
+      {label:'Their Scores',      target:'4', qval:q=>c('Point – Play (Them)',q)+c('Point – Free (Them)',q)+c('Goal – Them',q),                                              bad:v=>v>4},
+      {label:'Shot Eff – Play (Us)',  target:'70%', isPct:true, qval:q=>({n:c('Point – Play (Us)',q),  d:c('Point – Play (Us)',q)+c('Miss – Play (Us)',q)}),                      bad:(n,d)=>d>0&&n/d<0.70},
+      {label:'Shot Eff – Free (Us)',  target:'80%', isPct:true, qval:q=>({n:c('Point – Free (Us)',q),  d:c('Point – Free (Us)',q)+c('Miss – Free (Us)',q)}),                      bad:(n,d)=>d>0&&n/d<0.80},
+      {label:'Total Shot Eff (Us)',   target:'75%', isPct:true, qval:q=>{const n=c('Point – Play (Us)',q)+c('Point – Free (Us)',q);const d=n+c('Miss – Play (Us)',q)+c('Miss – Free (Us)',q);return{n,d};}, bad:(n,d)=>d>0&&n/d<0.75},
+    ]},
+    {label:'⬢ Work Rate', rows:[
+      {label:'Our PO Retention',    target:'70%', isPct:true, qval:q=>({n:c('Our PO – We Win',q),    d:c('Our PO – We Win',q)+c('Our PO – We Lose',q)}),                         bad:(n,d)=>d>0&&n/d<0.70},
+      {label:'Their PO – We Win',   target:'50%', isPct:true, qval:q=>({n:c('Their PO – We Win',q), d:c('Their PO – We Win',q)+c('Their PO – We Lose',q)}),                      bad:(n,d)=>d>0&&n/d<0.50},
+      {label:'Contested Ball Win%', target:'51%', isPct:true, qval:q=>({n:c('Contested Win',q),     d:c('Contested Win',q)+c('Contested Loss',q)}),                              bad:(n,d)=>d>0&&n/d<0.51},
+      {label:'T/O Forced Diff',     target:'+1',  isDiff:true,qval:q=>c('T/O Forced (Us)',q)-c('T/O Forced (Them)',q),                                                           bad:v=>v<1},
+    ]},
+    {label:'⬢ Composure', rows:[
+      {label:'Free Win%',           target:'60%', isPct:true, qval:q=>({n:c('Free Win',q),d:c('Free Win',q)+c('Free Lost',q)}),                                                  bad:(n,d)=>d>0&&n/d<0.60},
+      {label:'Unforced T/O Diff',   target:'+1',  isDiff:true,qval:q=>c('Unforced Win',q)-c('Unforced Loss',q),                                                                  bad:v=>v<1},
+    ]},
+    {label:'⬢ Misc', rows:[
+      {label:'Run thru 65',  target:'—', noColor:true, qval:q=>c('Run thru 65',q)},
+      {label:'Cards for Us', target:'—', noColor:true, qval:q=>c('Card for Us',q)},
+    ]},
   ];
   const tbody=document.getElementById('stats-tbody');tbody.innerHTML='';
-  rows.forEach(row=>{
-    const tr=document.createElement('tr');
-    let html=`<td>${row.label}</td><td class="target-col">${row.target}</td>`;
-    if(row.isPct){let tN=0,tD=0;[1,2,3,4].forEach(q=>{const{n,d}=row.qval(q);tN+=n;tD+=d;html+=cell(pct(n,d),row.bad(n,d),q);});html+=`<td class="total-col">${pct(tN,tD)}</td>`;}
-    else{let tot=0;[1,2,3,4].forEach(q=>{const v=row.qval(q);tot+=v;html+=cell(v,row.bad(v),q);});html+=`<td class="total-col">${tot}</td>`;}
-    tr.innerHTML=html;tbody.appendChild(tr);
+  groups.forEach(group=>{
+    const htr=document.createElement('tr');htr.className='cat-header';htr.innerHTML=`<td colspan="7">${group.label}</td>`;tbody.appendChild(htr);
+    group.rows.forEach(row=>{
+      const tr=document.createElement('tr');
+      let html=`<td>${row.label}</td><td class="target-col">${row.target}</td>`;
+      if(row.isPct){
+        let tN=0,tD=0;
+        [1,2,3,4].forEach(q=>{const{n,d}=row.qval(q);tN+=n;tD+=d;html+=cell(pct(n,d),row.bad(n,d),q);});
+        html+=`<td class="total-col">${pct(tN,tD)}</td>`;
+      } else if(row.isDiff){
+        let tot=0;
+        [1,2,3,4].forEach(q=>{const v=row.qval(q);tot+=v;html+=cell((v>0?'+':'')+v,row.bad(v),q);});
+        html+=`<td class="total-col">${(tot>0?'+':'')+tot}</td>`;
+      } else {
+        let tot=0;
+        [1,2,3,4].forEach(q=>{const v=row.qval(q);tot+=v;html+=row.noColor?`<td>${v}</td>`:cell(v,row.bad(v),q);});
+        html+=`<td class="total-col">${tot}</td>`;
+      }
+      tr.innerHTML=html;tbody.appendChild(tr);
+    });
   });
   const rawTbody=document.getElementById('raw-tbody');rawTbody.innerHTML='';
   KPI_GROUPS.forEach(group=>{
