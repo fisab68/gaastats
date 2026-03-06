@@ -112,6 +112,7 @@
 
   .kpi-btn { position:relative; overflow:hidden; border-radius:var(--radius); border:1.5px solid var(--border); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; padding:4px 6px 16px; touch-action:none; transition:transform 0.12s cubic-bezier(0.34,1.56,0.64,1); }
   .kpi-btn.blank { background:rgba(255,255,255,0.02); border-color:rgba(30,45,69,0.4); cursor:default; pointer-events:none; }
+  .kpi-btn.disabled-kpi { opacity:0.25; cursor:not-allowed; pointer-events:none; filter:grayscale(0.6); }
   .kpi-btn.cat-green  { background:linear-gradient(145deg,#0d2010,#0a1a0d); border-color:#1a4020; }
   .kpi-btn.cat-red    { background:linear-gradient(145deg,#200d0d,#1a0a0a); border-color:#401a1a; }
   .kpi-btn.cat-yellow { background:linear-gradient(145deg,#1a1500,#131000); border-color:#3a3000; }
@@ -412,8 +413,8 @@
     <button class="kpi-btn blank" aria-hidden="true"></button>
     <button class="kpi-btn cat-blue"   data-kpi="T/O Forced (Us)">    <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Us)</span>    <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
     <button class="kpi-btn cat-grey"   data-kpi="Unforced Loss">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Loss</span>      <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-grey"   data-kpi="T/O Forced (Them)">  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">T/O Forced (Them)</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
-    <button class="kpi-btn cat-blue"   data-kpi="Unforced Win">       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Unforced Them</span>       <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-grey disabled-kpi" data-kpi="T/O Forced (Them)" disabled>  <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">—</span><span class="kpi-label">T/O Forced (Them)</span>  <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
+    <button class="kpi-btn cat-blue disabled-kpi" data-kpi="Unforced Win" disabled>       <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">—</span><span class="kpi-label">Unforced Them</span>       <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
     <button class="kpi-btn cat-yellow" data-kpi="Run thru 65">        <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Run thru 65</span>        <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
     <button class="kpi-btn cat-blue"   data-kpi="Contested Win">      <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Win</span>      <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
     <button class="kpi-btn cat-grey"   data-kpi="Contested Loss">     <div class="zone-overlay zl"></div><div class="zone-overlay zm"></div><div class="zone-overlay zr"></div><span class="kpi-count">0</span><span class="kpi-label">Contested Loss</span>     <div class="zone-labels"><span class="zone-lbl">◄L</span><span class="zone-lbl">●</span><span class="zone-lbl">R►</span></div><div class="loc-badge"></div></button>
@@ -607,7 +608,7 @@ const KPI_LIST=[
   'Point – Play (Us)','Miss – Play (Us)','Point – Free (Us)','Miss – Free (Us)','Goal – Us',
   'Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them',
   'Our PO – We Win','Our PO – We Lose','Their PO – We Win','Their PO – We Lose',
-  'T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Run thru 65',
+  'T/O Forced (Us)','Contested Win','Contested Loss','Run thru 65',
   'Unforced Win','Unforced Loss','Free Win','Free Lost','Card for Us'
 ];
 const KPI_GROUPS=[
@@ -615,7 +616,7 @@ const KPI_GROUPS=[
   {label:'⬢ Scoring — Them',       kpis:['Point – Play (Them)','Miss – Play (Them)','Point – Free (Them)','Miss – Free (Them)','Goal – Them']},
   {label:'⬢ Puckouts — Our',       kpis:['Our PO – We Win','Our PO – We Lose']},
   {label:'⬢ Puckouts — Their',     kpis:['Their PO – We Win','Their PO – We Lose']},
-  {label:'⬢ Turnovers & Contests', kpis:['T/O Forced (Us)','T/O Forced (Them)','Contested Win','Contested Loss','Unforced Win','Unforced Loss']},
+  {label:'⬢ Turnovers & Contests', kpis:['T/O Forced (Us)','Contested Win','Contested Loss','Unforced Win','Unforced Loss']},
   {label:'⬢ Frees & Discipline',   kpis:['Free Win','Free Lost','Run thru 65','Card for Us']},
 ];
 const STORAGE_KEY='gaa_event_log_v11',STATE_KEY='gaa_game_state_v11',META_KEY='gaa_match_meta_v11';
@@ -1056,7 +1057,7 @@ function kpiContested(q){
     const third=getPitchThird(e.location||'Centre',e.quarter,dir);
     if(e.kpi==='Contested Win'||e.kpi==='T/O Forced (Us)'){
       wins++;zW[third]++;
-    } else if(e.kpi==='Contested Loss'||e.kpi==='T/O Forced (Them)'){
+    } else if(e.kpi==='Contested Loss'||e.kpi==='Unforced Loss'){
       losses++;zL[third]++;
     }
   });
