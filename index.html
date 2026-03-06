@@ -215,7 +215,7 @@
   #modal-tabs { display:flex; gap:6px; flex-shrink:0; }
   .modal-tab { flex:1; padding:9px 4px; background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text-dim); font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; text-align:center; cursor:pointer; transition:all 0.2s; }
   .modal-tab.active { background:var(--accent); border-color:var(--accent); color:#000; }
-  .tab-content { display:none; overflow:hidden; }
+  .tab-content { display:none; }
   .tab-content.active { display:block; }
   #raw-table { width:100%; border-collapse:collapse; font-size:14px; }
   #raw-table th { background:var(--surface2); color:var(--text-dim); font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:10px 6px; text-align:center; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; }
@@ -298,7 +298,20 @@
   .kpi-shoot-divider { border-top:1px solid var(--border); margin:4px 0; }
   .kpi-conv { font-size:22px; margin-top:2px; }
 
-  @media (orientation:landscape) and (min-width:900px) {
+  /* HALFTIME TABLE */
+  .ht-th { padding:9px 8px; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); text-align:center; }
+  .ht-row { display:grid; grid-template-columns:2fr 0.7fr 0.7fr 0.7fr 0.9fr; border-bottom:1px solid rgba(30,45,69,0.6); }
+  .ht-row:last-child { border-bottom:none; }
+  .ht-row.alt { background:rgba(255,255,255,0.015); }
+  .ht-label { padding:10px 8px; font-size:12px; font-weight:700; color:var(--text); letter-spacing:0.3px; display:flex; align-items:center; }
+  .ht-tgt   { padding:10px 4px; font-size:12px; font-weight:700; color:var(--amber); text-align:center; display:flex; align-items:center; justify-content:center; }
+  .ht-cell  { padding:6px 4px; display:flex; align-items:center; justify-content:center; }
+  .ht-val   { min-width:44px; padding:3px 6px; border-radius:6px; border:1.5px solid transparent; text-align:center; font-size:14px; font-weight:800; color:var(--text); }
+  .ht-val.ht-pos  { color:var(--green); background:rgba(0,230,118,0.08);  border-color:rgba(0,230,118,0.25); }
+  .ht-val.ht-neg  { color:var(--red);   background:rgba(255,61,90,0.08);  border-color:rgba(255,61,90,0.25); }
+  .ht-val.ht-zero { color:var(--text);  background:transparent;           border-color:transparent; }
+
+ and (min-width:900px) {
     #app { padding:5px 10px 4px; gap:4px; }
     #scoreboard { padding:3px 20px; }
     .score-value { font-size:36px; }
@@ -424,7 +437,7 @@
   </div>
 
   <div id="bottom-row">
-    <button class="action-btn" id="flow-btn"    onclick="advanceGameFlow()">▶ Start Game</button>
+    <button class="action-btn" id="flow-btn">▶ Start Game</button>
     <button class="action-btn" id="pause-btn"   onclick="togglePause()">⏸ Pause</button>
     <button class="action-btn" id="undo-btn"    onclick="undoLast()">↩ Undo</button>
     <button class="action-btn" id="display-btn" onclick="showDisplay()">📊 Stats</button>
@@ -453,6 +466,7 @@
     <div id="modal-tabs">
       <div class="modal-tab active" data-tab="kpi" onclick="switchTab('kpi')">📈 KPIs</div>
       <div class="modal-tab"        data-tab="raw" onclick="switchTab('raw')">📋 Raw Counts</div>
+      <div class="modal-tab"        data-tab="ht"  onclick="switchTab('ht')">⏸ Half Time</div>
     </div>
 
     <!-- KPI TAB -->
@@ -603,7 +617,19 @@
 
     </div><!-- end tab-kpi -->
 
-    <!-- RAW COUNTS TAB -->
+    <!-- HALFTIME REPORT TAB -->
+    <div class="tab-content" id="tab-ht">
+      <div id="ht-table-wrap" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <div id="ht-header" style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.7fr 0.9fr;background:var(--surface2);border-bottom:1px solid var(--border);">
+          <div class="ht-th" style="text-align:left">Event</div>
+          <div class="ht-th">Tgt/Qtr</div>
+          <div class="ht-th">Qtr 1</div>
+          <div class="ht-th">Qtr 2</div>
+          <div class="ht-th">Half Total</div>
+        </div>
+        <div id="ht-tbody"></div>
+      </div>
+    </div>
     <div class="tab-content" id="tab-raw">
       <table id="raw-table">
         <thead><tr><th>Event</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Total</th></tr></thead>
@@ -942,10 +968,38 @@ function doPause(){
 let lpTimer=null;
 function setupFlowLongPress(){
   const btn=document.getElementById('flow-btn');
-  const start=()=>{btn.classList.add('long-pressing');lpTimer=setTimeout(()=>{btn.classList.remove('long-pressing');confirmNewGame();},800);};
-  const cancel=()=>{clearTimeout(lpTimer);btn.classList.remove('long-pressing');};
-  btn.addEventListener('touchstart',start,{passive:true});btn.addEventListener('touchend',cancel,{passive:true});btn.addEventListener('touchcancel',cancel,{passive:true});
-  btn.addEventListener('mousedown',start);btn.addEventListener('mouseup',cancel);btn.addEventListener('mouseleave',cancel);
+  let pressing=false;
+
+  const onStart=e=>{
+    pressing=true;
+    btn.classList.add('long-pressing');
+    lpTimer=setTimeout(()=>{
+      pressing=false;
+      btn.classList.remove('long-pressing');
+      confirmNewGame();
+    },800);
+  };
+
+  const onEnd=e=>{
+    if(!pressing)return;          // long press already fired
+    pressing=false;
+    clearTimeout(lpTimer);
+    btn.classList.remove('long-pressing');
+    advanceGameFlow();
+  };
+
+  const onCancel=e=>{
+    pressing=false;
+    clearTimeout(lpTimer);
+    btn.classList.remove('long-pressing');
+  };
+
+  btn.addEventListener('touchstart', onStart,  {passive:true});
+  btn.addEventListener('touchend',   onEnd,    {passive:true});
+  btn.addEventListener('touchcancel',onCancel, {passive:true});
+  btn.addEventListener('mousedown',  onStart);
+  btn.addEventListener('mouseup',    onEnd);
+  btn.addEventListener('mouseleave', onCancel);
 }
 function confirmNewGame(){showConfirm('⊕ New Game','Clear all match data and metadata?',doNewGame,false);}
 function doNewGame(){
@@ -1039,6 +1093,7 @@ function switchTab(tab){
   document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.toggle('active',t.id===`tab-${tab}`));
   if(tab==='kpi')renderKpiTab();
+  if(tab==='ht')renderHalftimeTab();
 }
 
 function kpiCounts(q){
@@ -1176,13 +1231,13 @@ function renderKpiTab(){
   document.getElementById('shoot-us-free').textContent  =`Free: ${r.shotFreeScoreUs}✓ / ${r.shotFreeMissUs}✗`;
   document.getElementById('shoot-us-total').textContent =`${d.shotsUs} shots`;
   document.getElementById('shoot-us-conv').textContent  =fmtPct(d.convUs);
-  document.getElementById('box-shoot-us').className     ='kpi-box '+pctClass(d.convUs,70);
+  document.getElementById('shoot-us-conv').style.color  =d.convUs===null?'var(--text-dim)':d.convUs>=70?'var(--green)':'var(--red)';
 
   document.getElementById('shoot-them-play').textContent  =`Play: ${r.shotPlayScoreThem}✓ / ${r.shotPlayMissThem}✗`;
   document.getElementById('shoot-them-free').textContent  =`Free: ${r.shotFreeScoreThem}✓ / ${r.shotFreeMissThem}✗`;
   document.getElementById('shoot-them-total').textContent =`${d.shotsThem} shots`;
   document.getElementById('shoot-them-conv').textContent  =fmtPct(d.convThem);
-  document.getElementById('box-shoot-them').className     ='kpi-box kpi-zero';
+  document.getElementById('shoot-them-conv').style.color  ='var(--text-dim)';
 
   // ── Score per quarter ──
   const isTotal = kpiQ === 'total';
@@ -1191,16 +1246,12 @@ function renderKpiTab(){
   const usThreshold   = isTotal ? null : 5;
   const themThreshold = isTotal ? null : 4;
 
-  const scoreUsQtr = (() => {
-    const g = eventLog.filter(e => e.kpi==='Goal – Us'   && qs2.includes(e.quarter)).length;
-    const p = eventLog.filter(e => (e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)') && qs2.includes(e.quarter)).length;
-    return g*3+p;
-  })();
-  const scoreThemQtr = (() => {
-    const g = eventLog.filter(e => e.kpi==='Goal – Them'  && qs2.includes(e.quarter)).length;
-    const p = eventLog.filter(e => (e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)') && qs2.includes(e.quarter)).length;
-    return g*3+p;
-  })();
+  const scoreUsQtr = eventLog.filter(e =>
+    (e.kpi==='Goal – Us'||e.kpi==='Point – Play (Us)'||e.kpi==='Point – Free (Us)') && qs2.includes(e.quarter)
+  ).length;
+  const scoreThemQtr = eventLog.filter(e =>
+    (e.kpi==='Goal – Them'||e.kpi==='Point – Play (Them)'||e.kpi==='Point – Free (Them)') && qs2.includes(e.quarter)
+  ).length;
   const runThru65Qtr = eventLog.filter(e => e.kpi==='Run thru 65' && qs2.includes(e.quarter)).length;
 
   const usColor   = isTotal ? 'var(--text-dim)' : scoreUsQtr   >= 5 ? 'var(--green)' : 'var(--red)';
@@ -1228,7 +1279,87 @@ function renderKpiTab(){
   document.querySelectorAll('.kqi-qbtn').forEach(b=>b.classList.toggle('active',b.dataset.q===kpiQ));
 }
 
-function showDisplay(){
+// ── HALFTIME REPORT ──────────────────────────────────────────────
+const HT_ROWS=[
+  {label:'Our Scores',           tgt:'≥5',   field:'ourScores',     type:'count-pos', threshold:5,  htThreshold:10},
+  {label:'Their Scores',         tgt:'≤4',   field:'themScores',    type:'count-neg', threshold:4,  htThreshold:8 },
+  {label:'Our Shots',            tgt:'—',    field:'ourShots',      type:'neutral'},
+
+  {label:'Our Shooting Eff %',   tgt:'≥70%', field:'ourShootEff',   type:'pct-pos',   threshold:70},
+  {label:'Our PO Retention %',   tgt:'≥70%', field:'ourPORet',      type:'pct-pos',   threshold:70},
+  {label:'Their PO We Win %',    tgt:'≥50%', field:'theirPOWinPct', type:'pct-pos',   threshold:50},
+  {label:'Contested Ball Win %', tgt:'≥50%', field:'cbPct',         type:'pct-pos',   threshold:50},
+  {label:'Runs Thru 65',         tgt:'—',    field:'run65',         type:'neutral'},
+];
+const HT_PCT_FIELDS=new Set(['ourShootEff','ourPORet','theirPOWinPct','cbPct','defPct','midPct','attPct']);
+
+function calcHtRow(qs){
+  const c=k=>eventLog.filter(e=>e.kpi===k&&qs.includes(e.quarter)).length;
+  const pct=(n,d)=>d===0?null:Math.round((n/d)*100);
+  const dir=meta.directionFirstHalf||'Left to Right';
+
+  const ourScores  =c('Goal – Us')+c('Point – Play (Us)')+c('Point – Free (Us)');
+  const themScores =c('Goal – Them')+c('Point – Play (Them)')+c('Point – Free (Them)');
+  const ourShots   =ourScores+c('Miss – Play (Us)')+c('Miss – Free (Us)');
+  const themShots  =themScores+c('Miss – Play (Them)')+c('Miss – Free (Them)');
+  const ourShootEff=pct(ourScores,ourShots);
+
+  const ourPOWin=c('Our PO – We Win'),ourPOLoss=c('Our PO – We Lose');
+  const ourPORet=pct(ourPOWin,ourPOWin+ourPOLoss);
+
+  const theirPOWin=c('Their PO – We Win'),theirPOLoss=c('Their PO – We Lose');
+  const theirPOWinPct=pct(theirPOWin,theirPOWin+theirPOLoss);
+
+  let cbW=0,cbL=0;
+  const zW={Defensive:0,Middle:0,Attacking:0};
+  const zL={Defensive:0,Middle:0,Attacking:0};
+  eventLog.forEach(e=>{
+    if(!qs.includes(e.quarter))return;
+    const t=getPitchThird(e.location||'Centre',e.quarter,dir);
+    if(e.kpi==='Contested Win'||e.kpi==='T/O Forced (Us)'){cbW++;zW[t]++;}
+    else if(e.kpi==='Contested Loss'||e.kpi==='Unforced Loss'){cbL++;zL[t]++;}
+  });
+  const cbPct =pct(cbW,cbW+cbL);
+  const defPct=pct(zW.Defensive,zW.Defensive+zL.Defensive);
+  const midPct=pct(zW.Middle,zW.Middle+zL.Middle);
+  const attPct=pct(zW.Attacking,zW.Attacking+zL.Attacking);
+  const run65 =c('Run thru 65');
+
+  return {ourScores,themScores,ourShots,themShots,ourShootEff,
+          ourPORet,theirPOWinPct,cbPct,defPct,midPct,attPct,run65};
+}
+
+function htValClass(val,type,threshold){
+  if(val===null||type==='neutral')return 'ht-zero';
+  let good=false;
+  if(type==='count-pos')good=val>=threshold;
+  else if(type==='count-neg')good=val<=threshold;
+  else if(type==='pct-pos')good=val>=threshold;
+  return good?'ht-pos':'ht-neg';
+}
+
+function renderHalftimeTab(){
+  const q1=calcHtRow([1]),q2=calcHtRow([2]),ht=calcHtRow([1,2]);
+  const tbody=document.getElementById('ht-tbody');
+  tbody.innerHTML='';
+  HT_ROWS.forEach((row,ri)=>{
+    const v1=q1[row.field],v2=q2[row.field],vHT=ht[row.field];
+    const fmt=v=>v===null?'—':HT_PCT_FIELDS.has(row.field)?`${v}%`:`${v}`;
+    const htThr=row.htThreshold!==undefined?row.htThreshold:row.threshold;
+    const div=document.createElement('div');
+    div.className='ht-row'+(ri%2?' alt':'');
+    div.innerHTML=`
+      <div class="ht-label">${row.label}</div>
+      <div class="ht-tgt">${row.tgt}</div>
+      <div class="ht-cell"><div class="ht-val ${htValClass(v1,row.type,row.threshold)}">${fmt(v1)}</div></div>
+      <div class="ht-cell"><div class="ht-val ${htValClass(v2,row.type,row.threshold)}">${fmt(v2)}</div></div>
+      <div class="ht-cell"><div class="ht-val ${htValClass(vHT,row.type,htThr)}">${fmt(vHT)}</div></div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+
   const raw={};KPI_LIST.forEach(k=>{raw[k]={1:0,2:0,3:0,4:0};});
   eventLog.forEach(e=>{if(raw[e.kpi])raw[e.kpi][e.quarter]++;});
   const c=(kpi,q)=>raw[kpi]?raw[kpi][q]:0;
@@ -1252,8 +1383,11 @@ function showDisplay(){
   if(meta.directionFirstHalf)parts.push(`1st Half: ${meta.directionFirstHalf}`);
   document.getElementById('modal-match-info').textContent=parts.join('  ·  ');
   kpiQ='total';
+  document.querySelectorAll('.kqi-qbtn').forEach(b=>b.classList.toggle('active',b.dataset.q==='total'));
+  switchTab('kpi');
   document.getElementById('modal-overlay').classList.add('visible');
   renderKpiTab();
+  renderHalftimeTab();
 }
 function hideDisplay(evt){if(evt&&evt.target!==document.getElementById('modal-overlay'))return;document.getElementById('modal-overlay').classList.remove('visible');}
 
